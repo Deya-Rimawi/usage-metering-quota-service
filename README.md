@@ -17,7 +17,7 @@ curl localhost:3000/ready
 ```bash
 cd service && npm install
 docker compose up -d db          # tests use the compose database on 127.0.0.1:5433
-npm run check                    # typecheck + 105 tests
+npm run check                    # typecheck + 112 tests
 (cd ../client && npm install && npm run typecheck)   # the client and load tests are TypeScript too (Node runs them directly)
 docker compose --profile tools run --rm e2e   # demo scenario against the live stack
 ```
@@ -74,7 +74,7 @@ Errors always look like `{"error":{"code":"...","message":"..."}}`.
 
 A request is accepted only if **all six** checks pass (per-request, daily and monthly, each for the user and for the account). A rejection consumes nothing. The response names the first broken rule in this fixed order and whether it belongs to the `user` or the `account`, and lists every broken rule in `violations`. Accepted units are added to the user's usage **and** the account's usage, for the day and the month; the account's usage is the sum of its users'. The daily allowance behaves exactly like the monthly one: the account's is shared by its users, each user's is separate, a plan switch keeps what was already used, and a cut below usage shows 0 left and rejects.
 
-**API keys.** An admin creates an account (`POST /accounts` with `X-Admin-Token`); the response contains the account's `apiKey` **once**. The calling backend sends it as `X-API-Key` on every other call. The key identifies the account and gives access to that account's data only: another account's users and plans answer `404`; a missing or invalid key answers `401`. Only a SHA-256 hash of the key is stored. `POST /account/api-key/rotate` replaces the key (an admin can also do this if the key is lost).
+**API keys.** The service operator (or its trusted provisioning backend) creates an account (`POST /accounts` with `X-Admin-Token`; the admin token is never given to accounts). The response contains the account's `apiKey` **once**. Passing your own `externalId` makes creation idempotent, so a retried provisioning call returns the existing account instead of a duplicate ([`docs/PROVISIONING.md`](docs/PROVISIONING.md)). The calling backend sends it as `X-API-Key` on every other call. The key identifies the account and gives access to that account's data only: another account's users and plans answer `404`; a missing or invalid key answers `401`. Only a SHA-256 hash of the key is stored. `POST /account/api-key/rotate` replaces the key (an admin can also do this if the key is lost).
 
 **Plan changes.** Edits and plan switches apply to every request that starts after the change succeeds, with no redeploy. Units already consumed this month are kept, so switching plans never grants a fresh allowance. Editing a custom plan affects every account or user assigned to it. If an allowance is lowered below existing usage, remaining shows `0` and consumption at that level is rejected until the allowance exceeds usage again or the month rolls over. Past request history is never rewritten: each decision stores the limits that applied when it was made. Predefined plans are read-only; create a custom plan to change limits. Several users can share one plan and still keep separate usage.
 
@@ -146,6 +146,7 @@ All via environment variables (Compose reads `.env`; see `.env.example`). Only t
 
 ## Docs
 - [`docs/PLAN.md`](docs/PLAN.md): architecture, schedule, and the documentation roadmap
+- [`docs/PROVISIONING.md`](docs/PROVISIONING.md): who creates accounts, who holds which secret, idempotent provisioning
 - [`docs/DEMO.md`](docs/DEMO.md): the example client and the guided scenario
 - [`docs/SECURITY.md`](docs/SECURITY.md): threat model, controls, review results
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): layers, diagrams, request lifecycle

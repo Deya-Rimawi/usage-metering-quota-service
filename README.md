@@ -1,21 +1,20 @@
 # Usage Metering & Quota Service
 
 [![CI](https://github.com/Deya-Rimawi/usage-metering-quota-service/actions/workflows/ci.yml/badge.svg)](https://github.com/Deya-Rimawi/usage-metering-quota-service/actions/workflows/ci.yml)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Deya-Rimawi/usage-metering-quota-service)
 
 A backend service that other applications call **before** doing something that costs units (for example processing a document), to track usage and decide whether a user may go ahead. It enforces an **account plan** (limits shared by all of an application's users) and a **user plan** (each user's own limits) together, records every decision, stays exact when many requests arrive at once, and makes retries safe. TypeScript, PostgreSQL, Docker Compose.
 
 **What is in the repo:** the service (`service/`), an example client with a web page (`client/`), load tests (`loadtest/`), and documentation (`docs/`), all in TypeScript on PostgreSQL. One command starts all of it.
 
 ## For reviewers: a 10-minute tour
-1. **Run it** (below): `docker compose up --build`, or click the Codespaces badge (the stack starts by itself and the demo opens).
+1. **Run it** (below): `docker compose up --build`.
 2. **See it work:** open the demo client (http://localhost:8080) and click **Run scenario**. It shows an accepted action, a rejection by a user limit, a rejection by the shared account limit, then a plan change that alters what a user can do with no client code change, plus safe retries and the extra daily rule.
 3. **Check the brief:** [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) maps every requirement to its code, test and doc.
 4. **Check the tests:** `cd service && npm run check` (typecheck + 123 tests, against a real PostgreSQL), and `docker compose --profile tools run --rm e2e`. [`docs/TESTING.md`](docs/TESTING.md) lists what each test proves and the checks that show the tests can fail.
 5. **Read the heart of it:** [`docs/CONCURRENCY.md`](docs/CONCURRENCY.md) (why totals stay exact), then [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) (measured results and what changed), then [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) (honest limits).
 
 ## Quick start
-Needs only Docker (Compose v2). In **GitHub Codespaces** this happens automatically.
+Needs only Docker (Compose v2).
 ```bash
 cp .env.example .env
 docker compose up --build        # service :3000, demo client :8080, Postgres on 127.0.0.1:5433

@@ -1,10 +1,12 @@
+import type { QueryResultRow } from 'pg';
 import { randomUUID } from 'node:crypto';
 import type { Plan, PlanKind } from '../domain/types';
 import type { Db } from './db';
 
 const COLS = `id, kind, name, monthly_allowance, daily_allowance, max_per_request, account_id IS NULL AS predefined, created_at, updated_at`;
 
-export const toPlan = (r: any): Plan => ({
+// Rows from pg are untyped: this mapper is the one place they are turned into typed objects.
+export const toPlan = (r: QueryResultRow): Plan => ({
   id: r.id,
   kind: r.kind,
   name: r.name,

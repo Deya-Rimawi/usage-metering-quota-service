@@ -21,14 +21,20 @@ export function adminRoutes(app: FastifyInstance, pool: pg.Pool, config: Pick<Co
     {
       ...adminOnly,
       schema: {
-        tags: ['Accounts'], summary: 'Create an account and issue its API key (admin only)',
-        description: 'Requires `X-Admin-Token`. The `apiKey` in the response is shown once and never stored in plain form.',
+        tags: ['Accounts'], summary: 'Create an account and issue its API key (admin only); idempotent with externalId',
+        description: 'Requires `X-Admin-Token`. The `apiKey` in the response is shown once and never stored in plain form. If you pass `externalId` (your own id for the customer), creating it again returns the existing account with HTTP 200, `created: false` and `apiKey: null` instead of a duplicate; use the admin rotate endpoint if the first response was lost. Other fields only apply on first creation.',
         security: [{ adminToken: [] }],
-        body: z.object({ name: text(200), planId: planIdSchema.default('starter') }),
-        response: { 201: z.object({ account: accountSchema, apiKey: z.string() }) },
+        body: z.object({ name: text(200), planId: planIdSchema.default('starter'), externalId: text(200).optional() }),
+        response: {
+          201: z.object({ created: z.literal(true), account: accountSchema, apiKey: z.string() }),
+          200: z.object({ created: z.literal(false), account: accountSchema, apiKey: z.null() }),
+        },
       },
     },
-    async (req, reply) => reply.code(201).send(await accounts.createAccount(pool, req.body)),
+    async (req, reply) => {
+      const out = await accounts.createAccount(pool, req.body);
+      return out.created ? reply.code(201).send(out) : reply.code(200).send(out);
+    },
   );
 
   // Lost-key recovery: the account's own rotate endpoint needs the old key, so an admin needs a way in.

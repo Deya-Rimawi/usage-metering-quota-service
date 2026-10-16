@@ -51,11 +51,11 @@
     },
     "/accounts": {
       "post": {
-        "summary": "Create an account and issue its API key (admin only)",
+        "summary": "Create an account and issue its API key (admin only); idempotent with externalId",
         "tags": [
           "Accounts"
         ],
-        "description": "Requires `X-Admin-Token`. The `apiKey` in the response is shown once and never stored in plain form.",
+        "description": "Requires `X-Admin-Token`. The `apiKey` in the response is shown once and never stored in plain form. If you pass `externalId` (your own id for the customer), creating it again returns the existing account with HTTP 200, `created: false` and `apiKey: null` instead of a duplicate; use the admin rotate endpoint if the first response was lost. Other fields only apply on first creation.",
         "requestBody": {
           "required": true,
           "content": {
@@ -73,6 +73,12 @@
                     "default": "starter",
                     "type": "string",
                     "pattern": "^[A-Za-z0-9_.:-]{1,100}$"
+                  },
+                  "externalId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
                   }
                 },
                 "required": [
@@ -88,13 +94,19 @@
           }
         ],
         "responses": {
-          "201": {
+          "200": {
             "description": "Default Response",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "created": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
                     "account": {
                       "type": "object",
                       "properties": {
@@ -102,6 +114,10 @@
                           "type": "string"
                         },
                         "name": {
+                          "type": "string"
+                        },
+                        "externalId": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "plan": {
@@ -168,6 +184,121 @@
                       "required": [
                         "id",
                         "name",
+                        "externalId",
+                        "plan",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "apiKey": {
+                      "type": "string",
+                      "nullable": true,
+                      "enum": [
+                        null
+                      ]
+                    }
+                  },
+                  "required": [
+                    "created",
+                    "account",
+                    "apiKey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "created": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "account": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "externalId": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "plan": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "account",
+                                "user"
+                              ]
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "monthlyAllowance": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000000000000
+                            },
+                            "dailyAllowance": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000000000000
+                            },
+                            "maxPerRequest": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000000000
+                            },
+                            "predefined": {
+                              "type": "boolean"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "kind",
+                            "name",
+                            "monthlyAllowance",
+                            "dailyAllowance",
+                            "maxPerRequest",
+                            "predefined",
+                            "createdAt",
+                            "updatedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "externalId",
                         "plan",
                         "createdAt"
                       ],
@@ -178,6 +309,7 @@
                     }
                   },
                   "required": [
+                    "created",
                     "account",
                     "apiKey"
                   ],
@@ -255,6 +387,10 @@
                     "name": {
                       "type": "string"
                     },
+                    "externalId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "plan": {
                       "type": "object",
                       "properties": {
@@ -319,6 +455,7 @@
                   "required": [
                     "id",
                     "name",
+                    "externalId",
                     "plan",
                     "createdAt"
                   ],
@@ -369,6 +506,10 @@
                     "name": {
                       "type": "string"
                     },
+                    "externalId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "plan": {
                       "type": "object",
                       "properties": {
@@ -433,6 +574,7 @@
                   "required": [
                     "id",
                     "name",
+                    "externalId",
                     "plan",
                     "createdAt"
                   ],

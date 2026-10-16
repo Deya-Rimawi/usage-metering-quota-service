@@ -31,7 +31,7 @@ The key identifies the calling account. Every query is scoped to that account, s
 ## Endpoints
 | Method & path | Purpose |
 |---|---|
-| `POST /accounts` | (admin) Create an account; returns the API key **once** |
+| `POST /accounts` | (admin) Create an account; returns the API key **once**. Pass `externalId` (your own customer id) to make it idempotent: a repeat returns `200 {created:false, apiKey:null}` instead of a duplicate |
 | `POST /accounts/{accountId}/api-key/rotate` | (admin) New key for an account that lost its key |
 | `GET /account` | The account, its plan and limits |
 | `PUT /account/plan` | `{planId}` change the account plan |

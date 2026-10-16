@@ -28,7 +28,7 @@ export const planSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const accountSchema = z.object({ id: z.string(), name: z.string(), plan: planSchema, createdAt: z.string() });
+export const accountSchema = z.object({ id: z.string(), name: z.string(), externalId: z.string().nullable(), plan: planSchema, createdAt: z.string() });
 export const userSchema = z.object({ userId: z.string(), plan: planSchema, createdAt: z.string() });
 
 export const pageQuery = z.object({

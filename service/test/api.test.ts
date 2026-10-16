@@ -180,3 +180,75 @@ describe('account isolation', () => {
     expect((await ca.get('/users')).json().users).toHaveLength(1);
   });
 });
+
+describe('idempotent account creation (externalId)', () => {
+  const adminPost = (url: string, payload?: unknown) => app.inject({ method: 'POST', url, payload: payload as any, headers: { 'x-admin-token': ADMIN } });
+  const accountCount = async () => (await pool.query('SELECT count(*)::int n FROM accounts')).rows[0].n;
+
+  it('creating the same externalId twice returns the same account, once, and never a second key', async () => {
+    const first = await adminPost('/accounts', { name: 'Acme', externalId: 'cust_42', planId: 'pro' });
+    expect(first.statusCode).toBe(201);
+    expect(first.json()).toMatchObject({ created: true, account: { externalId: 'cust_42', plan: { id: 'pro' } } });
+    const key = first.json().apiKey as string;
+
+    const retry = await adminPost('/accounts', { name: 'Acme', externalId: 'cust_42', planId: 'pro' });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json()).toMatchObject({ created: false, apiKey: null });
+    expect(retry.json().account.id).toBe(first.json().account.id);
+    expect(await accountCount()).toBe(1);
+    expect((await client(app, key).get('/account')).statusCode).toBe(200); // the original key is untouched
+  });
+
+  it('only the first call decides name and plan; a later call with other values does not change the account', async () => {
+    await adminPost('/accounts', { name: 'Acme', externalId: 'cust_7', planId: 'pro' });
+    const again = await adminPost('/accounts', { name: 'Renamed', externalId: 'cust_7', planId: 'starter' });
+    expect(again.json().account).toMatchObject({ name: 'Acme', plan: { id: 'pro' } });
+    // even a retry whose other fields are no longer valid finds the existing account (the id alone decides)
+    const stale = await adminPost('/accounts', { name: 'Acme', externalId: 'cust_7', planId: 'a-plan-that-does-not-exist' });
+    expect(stale.statusCode).toBe(200);
+    expect(stale.json()).toMatchObject({ created: false, account: { name: 'Acme' } });
+  });
+
+  it('different externalIds, or none, make different accounts', async () => {
+    await adminPost('/accounts', { name: 'A', externalId: 'a' });
+    await adminPost('/accounts', { name: 'B', externalId: 'b' });
+    await adminPost('/accounts', { name: 'C' });
+    await adminPost('/accounts', { name: 'C' }); // no externalId: not idempotent, as before
+    expect(await accountCount()).toBe(4);
+  });
+
+  it('ten simultaneous creations of one externalId produce exactly one account and one key', async () => {
+    const results = await Promise.all(Array.from({ length: 10 }, () => adminPost('/accounts', { name: 'Race', externalId: 'cust_race' })));
+    const bodies = results.map((r) => r.json());
+    expect(results.every((r) => [200, 201].includes(r.statusCode))).toBe(true);
+    expect(bodies.filter((b) => b.created)).toHaveLength(1);
+    expect(bodies.filter((b) => b.apiKey !== null)).toHaveLength(1);
+    expect(new Set(bodies.map((b) => b.account.id)).size).toBe(1);
+    expect(await accountCount()).toBe(1);
+  });
+
+  it('a lost first response is recoverable: the retry finds the account and the admin rotates a working key', async () => {
+    await adminPost('/accounts', { name: 'Acme', externalId: 'cust_lost' }); // pretend this response never arrived
+    const retry = await adminPost('/accounts', { name: 'Acme', externalId: 'cust_lost' });
+    expect(retry.json()).toMatchObject({ created: false, apiKey: null });
+    const rotated = await adminPost(`/accounts/${retry.json().account.id}/api-key/rotate`);
+    expect(rotated.statusCode).toBe(200);
+    expect((await client(app, rotated.json().apiKey).get('/account')).json().externalId).toBe('cust_lost');
+    expect(await accountCount()).toBe(1);
+  });
+
+  it('is still admin-only, validates the id, and an account key cannot do any of it', async () => {
+    expect((await app.inject({ method: 'POST', url: '/accounts', payload: { name: 'x', externalId: 'e' } })).statusCode).toBe(401);
+    const { key } = await createAccount(app, 'acme');
+    const withAccountKey = await app.inject({ method: 'POST', url: '/accounts', payload: { name: 'x', externalId: 'e' }, headers: { 'x-api-key': key } });
+    expect(withAccountKey.statusCode).toBe(401); // an account key is not admin
+    expect((await adminPost('/accounts', { name: 'x', externalId: '' })).statusCode).toBe(422);
+    expect((await adminPost('/accounts', { name: 'x', externalId: 'a\u0000b' })).statusCode).toBe(422);
+    expect((await adminPost('/accounts', { name: 'x', externalId: 'e'.repeat(201) })).statusCode).toBe(422);
+  });
+
+  it('the admin token is not accepted on data routes (the two credentials never overlap)', async () => {
+    const res = await app.inject({ method: 'GET', url: '/usage', headers: { 'x-admin-token': ADMIN } });
+    expect(res.statusCode).toBe(401);
+  });
+});

@@ -28,3 +28,42 @@ export const pageQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   cursor: z.string().optional(),
 });
+
+export const violationSchema = z.object({
+  level: z.enum(['account', 'user']), rule: z.enum(['max_per_request', 'monthly_allowance']),
+  limit: z.number(), requested: z.number(), remaining: z.number().nullable(),
+});
+
+export const side = z.object({
+  planId: z.string(), planName: z.string(),
+  monthlyAllowance: z.number().nullable(), maxPerRequest: z.number().nullable(),
+  used: z.number(), remaining: z.number().nullable(),
+});
+
+export const consumeResponse = z.object({
+  requestId: z.string(), userId: z.string(), units: z.number(), period: z.string(),
+  accepted: z.boolean(),
+  rule: z.enum(['max_per_request', 'monthly_allowance']).nullable(),
+  level: z.enum(['account', 'user']).nullable(),
+  message: z.string(),
+  violations: z.array(violationSchema),
+  account: side, user: side, replayed: z.boolean(),
+});
+
+export const periodQuery = z.string().regex(/^\d{4}-\d{2}$/, "Use YYYY-MM, e.g. 2026-10");
+
+export const usageResponse = z.object({
+  period: z.string(), current: z.boolean(), account: side,
+  users: z.array(side.extend({ userId: z.string() })), nextCursor: z.string().nullable(),
+});
+
+export const userUsageResponse = z.object({
+  userId: z.string(), period: z.string(), current: z.boolean(), account: side, user: side,
+});
+
+export const historyItem = z.object({
+  requestId: z.string(), userId: z.string(), units: z.number(), period: z.string(), accepted: z.boolean(),
+  rule: z.enum(['max_per_request', 'monthly_allowance']).nullable(), level: z.enum(['account', 'user']).nullable(),
+  message: z.string(), violations: z.array(violationSchema),
+  account: side, user: side, createdAt: z.string(),
+});

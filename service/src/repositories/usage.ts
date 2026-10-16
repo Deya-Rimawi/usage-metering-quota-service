@@ -49,3 +49,28 @@ export async function currentLimits(db: Db, uid: string, accountId: string) {
     user: { planId: r.u_id as string, planName: r.u_name as string, limits: { monthlyAllowance: r.u_month as number | null, maxPerRequest: r.u_req as number | null } },
   };
 }
+
+/** Units used this month by an account (0 if it has not consumed anything yet). Read without locking. */
+export async function accountUsed(db: Db, accountId: string, period: string): Promise<number> {
+  const { rows } = await db.query('SELECT units FROM account_usage WHERE account_id = $1 AND period = $2', [accountId, period]);
+  return rows[0]?.units ?? 0;
+}
+
+export async function userUsed(db: Db, uid: string, period: string): Promise<number> {
+  const { rows } = await db.query('SELECT units FROM user_usage WHERE user_id = $1 AND period = $2', [uid, period]);
+  return rows[0]?.units ?? 0;
+}
+
+/** Every user of the account with that month's usage (0 for users who did not consume). Keyset-paginated. */
+export async function listUsersWithUsage(
+  db: Db, accountId: string, period: string, limit: number, after?: { t: string; id: string },
+) {
+  const { rows } = await db.query(
+    `SELECT u.id, u.external_id, u.plan_id, u.created_at::text AS created_at_raw, COALESCE(uu.units, 0) AS used
+     FROM users u LEFT JOIN user_usage uu ON uu.user_id = u.id AND uu.period = $2
+     WHERE u.account_id = $1 AND ($3::timestamptz IS NULL OR (u.created_at, u.id) > ($3::timestamptz, $4::uuid))
+     ORDER BY u.created_at, u.id LIMIT $5`,
+    [accountId, period, after?.t ?? null, after?.id ?? null, limit],
+  );
+  return rows.map((r) => ({ uid: r.id as string, userId: r.external_id as string, planId: r.plan_id as string, createdAtRaw: r.created_at_raw as string, used: r.used as number }));
+}

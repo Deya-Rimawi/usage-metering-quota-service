@@ -26,3 +26,8 @@ The brief leaves some behaviour open. Each choice below is deliberate, applied c
 | 19 | Reduced allowance | `remaining = max(0, allowance - used)`; consumption is rejected at that level until allowance exceeds usage again. Usage is never rewritten. | Brief. |
 | 20 | Unknown user on consume | 404; nothing is auto-created and nothing is logged. | Users are registered explicitly, so typos fail loudly. |
 | 21 | Plan edits mid-request | A request uses the plans read once after it takes its locks. | Never a mix of old and new limits; see CONCURRENCY.md. |
+| 22 | `remaining` for past months | Only the current month reports `remaining`; for past months it is `null` and `used` is the record. | "Remaining" means what can still be consumed, which is meaningless for a closed month, and recomputing it against today's plan would be misleading. |
+| 23 | Future periods | `period` after the current UTC month gives 422 `future_period`. A past month with no activity returns zeros. | Nothing can exist in the future; zeros for quiet months are truthful. |
+| 24 | Usage lists every user | `/usage` includes users with 0 usage. | A complete roster is easier to reconcile than a sparse one. |
+| 25 | History scope | `/requests` returns decisions (accepted and rejected), newest first, with the limits that applied then, filterable by user, month and outcome. It never rewrites when plans change. | Brief: changes must preserve past request history. |
+| 26 | Reads are not locked | Usage/limits/history read committed data without locks, so a value may be a few milliseconds behind a request in flight. | Reads must not slow the write path; decisions never depend on these reads. |

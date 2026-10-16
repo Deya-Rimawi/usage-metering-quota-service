@@ -2,7 +2,7 @@
 
 Backend service that tracks usage and decides whether a user may consume units, enforcing an account plan and a user plan together.
 
-> **Status:** Day 3 of 7 (accounts, API keys, users, plans, **consume engine**). Usage/history endpoints, demo client and load tests come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
+> **Status:** Day 4 of 7: full API done (accounts, users, plans, consume, usage, history, OpenAPI docs). Demo client, load tests and polish come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Quick start
 ```bash
@@ -10,6 +10,7 @@ cp .env.example .env
 docker compose up --build        # service on http://localhost:3000, Postgres on 127.0.0.1:5433
 curl localhost:3000/ready
 ```
+Interactive API docs: http://localhost:3000/docs
 
 ## Develop and test
 ```bash
@@ -59,6 +60,9 @@ Errors always look like `{"error":{"code":"...","message":"..."}}`.
 
 ## Docs
 - [`docs/PLAN.md`](docs/PLAN.md): architecture, schedule, and the documentation roadmap
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): layers, diagrams, request lifecycle
+- [`docs/API.md`](docs/API.md): endpoint reference, error catalogue ([`openapi.json`](docs/openapi.json))
+- [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md): ER diagram, constraints, invariants
 - [`docs/CONCURRENCY.md`](docs/CONCURRENCY.md): how consume stays correct under parallel requests
 - [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md): every product decision the brief left open
 - [`docs/decisions/`](docs/decisions): architecture decision records

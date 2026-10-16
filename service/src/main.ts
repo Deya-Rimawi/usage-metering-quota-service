@@ -19,6 +19,10 @@ async function main() {
     app.log.warn('ADMIN_TOKEN is the published demo value: anyone who can reach this port can create accounts. Set ADMIN_TOKEN before exposing the service.');
   }
 
+  if (config.OPEN_SIGNUP) {
+    app.log.warn('OPEN_SIGNUP is on: anyone who can reach this service can create an account and get an API key (rate-limited and capped). Make sure that is intended.');
+  }
+
   await app.listen({ port: config.PORT, host: '0.0.0.0' });
 
   // Graceful shutdown: stop accepting requests, let in-flight transactions finish, close the pool.

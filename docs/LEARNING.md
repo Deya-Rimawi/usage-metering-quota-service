@@ -56,3 +56,16 @@ Averages hide pain. **p99 latency** = the time 99% of requests beat. A load test
 ## 14. Constraints in the database
 `CHECK`, `UNIQUE` and foreign keys are rules the database itself enforces. Even a bug in the application cannot store a user plan on an account, a negative counter, or two decisions for one request id.
 *Here:* [DATA_MODEL.md](DATA_MODEL.md).
+
+## 15. Get-or-create and partial unique indexes
+"Create this customer" called twice should not make two customers. The caller supplies its own id (`externalId`); a **unique index** guarantees at most one row per id, and `INSERT ... ON CONFLICT DO NOTHING` lets the database decide a race between simultaneous calls: one insert wins, the others get nothing back and read the existing row. The index is **partial** (`WHERE external_id IS NOT NULL`) so accounts without an id are unrestricted.
+*Here:* `repositories/accounts.ts` (`insert`), `db/sql/005_account_external_id.sql`, tested with ten simultaneous creations in `test/api.test.ts`.
+
+## 16. Advisory locks
+A row lock protects a row. Sometimes you need a lock on an *idea* ("only one signup may check and bump the cap at a time"). Postgres **advisory locks** let you lock an arbitrary number for the length of a transaction. Use them sparingly: here only on the anonymous signup path, never on the hot consume path.
+*Here:* `services/accounts.ts` (`signUp`), and the migration runner uses one too.
+
+## 17. Rate limiting and trust levels
+Not every caller deserves the same limits. The account-creation route gives a *generous* per-IP limit to a caller with the valid admin token and a *strict* one to everyone else (anonymous signups and anyone guessing the token). The limiter must run **before** the token check so guesses are counted.
+*Here:* `http/routes/accounts.ts` (`rateLimit`), `http/auth.ts`.
+

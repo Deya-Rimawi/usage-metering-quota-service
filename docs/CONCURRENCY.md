@@ -69,5 +69,8 @@ Five round trips including BEGIN and COMMIT. The daily allowance ([ADR-007](deci
 - **Many service instances:** correct, because correctness is in the database lock. Each instance has its own gate (a performance guard).
 - **Hot account:** requests queue (in the gate, then on the lock); none is lost. Order is first-come within one process's gate; across instances Postgres does not promise FIFO among lock waiters, which affects fairness only, never correctness.
 
+## The one other explicit lock
+Self-service signup (`OPEN_SIGNUP`, [ADR-008](decisions/ADR-008-optional-self-service-signup.md)) caps how many self-service accounts may exist. "Count, then insert" would let a burst of simultaneous signups all pass the count, so that path takes a short transaction-scoped Postgres advisory lock around the count and the insert. It is only on the anonymous signup path, never on consume. Idempotent account creation (`externalId`) needs no lock: a partial unique index plus `INSERT ... ON CONFLICT DO NOTHING` lets the database pick one winner.
+
 ## Known limit
 All consumes for **one account** serialize, so one account is bounded by how long a transaction holds the lock (about 4 ms, of which roughly 60% is the commit's disk flush). Different accounts do not interact. Numbers and the upgrade path (batching decisions to share one flush, or sharded counters) are in [PERFORMANCE.md](PERFORMANCE.md) and [LIMITATIONS.md](LIMITATIONS.md).

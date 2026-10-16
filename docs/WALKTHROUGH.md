@@ -51,8 +51,17 @@ Rejected request: steps 1-9 identical; in step 10 only the log row is inserted, 
 20. *What would you do to scale one account beyond that ceiling?* Shard the counter into N sub-rows, or batch decisions per account. Both complicate "exactly at the limit". It is documented as the upgrade path, not built, because the requirement is correctness first.
 21. *Why not a stored procedure for a single round trip?* It would duplicate the rule logic in SQL, splitting the one place the rules live. The extra gain is small. (ADR-005)
 
+**Accounts, provisioning and the extra rule**
+23. *Who creates accounts?* By default the service operator (or its trusted provisioning backend) with an admin token that is never given to an account. Optionally, with `OPEN_SIGNUP=true`, anyone can create one and gets the key in the response. See [PROVISIONING.md](PROVISIONING.md).
+24. *What if the provisioning call times out and is retried?* Pass your own `externalId`: creation is get-or-create, so the retry returns the existing account with no duplicate and no second key. If the first response with the key was lost, the admin rotates a new key (safe: nothing could have used the lost one).
+25. *Why can't self-service callers use `externalId`?* An anonymous get-or-create would reveal which customer ids exist. It is admin-only (403 otherwise).
+26. *How is open signup kept from being abused?* Off by default; a strict per-IP rate limit; an exact cap on self-service accounts (an advisory lock around count-then-insert); a wrong admin token is never downgraded to a signup. What it does not have (email verification, CAPTCHA) belongs to the website in front, outside the brief.
+27. *What is the extra rule and how does it interact with the plans?* A daily allowance (units per UTC day) in both plan kinds. It is one more check in the pure rule function, evaluated shortest window first, shared at account level and separate per user, with the same plan-change and retry semantics as the monthly one. See [ADR-007](decisions/ADR-007-daily-allowance.md).
+28. *Does the daily rule need another lock?* No. Every writer of any counter, monthly or daily, still holds the account's monthly row first, so one lock serializes everything. The write statement just updates four counters instead of two (measured: no change beyond noise).
+29. *Why only two levels (account and user)?* That is the model in the brief. The application decides what a user is; a third level means one account per customer organization.
+
 **Honesty questions**
-22. *What are the weak points?* See [LIMITATIONS.md](LIMITATIONS.md): per-account ceiling, single Postgres, in-memory gate memory proportional to queued requests, no key scopes, unbounded history growth, not tested beyond one machine.
+30. *What are the weak points?* See [LIMITATIONS.md](LIMITATIONS.md): per-account ceiling, single Postgres, in-memory gate memory proportional to queued requests, no key scopes, unbounded history growth, not tested beyond one machine.
 
 ## Live-change drills (practice these)
 | Change | Where | How |

@@ -36,6 +36,8 @@ docker compose --profile tools run --rm e2e   # demo scenario against the live s
 curl -s -X POST localhost:3000/accounts -H 'x-admin-token: dev-admin-token' \
   -H 'content-type: application/json' -d '{"name":"Acme","planId":"starter"}'
 export KEY=mk_...   # paste the apiKey
+#    Retry-safe provisioning from a backend: add "externalId":"<your customer id>" (a repeat returns the same account, no new key).
+#    Self-service instead (only if the service runs with OPEN_SIGNUP=true): the same call WITHOUT the admin token header.
 
 # 2. Register users and give one a bigger plan
 curl -s -X POST localhost:3000/users -H "x-api-key: $KEY" -H 'content-type: application/json' -d '{"userId":"alice"}'
@@ -149,15 +151,12 @@ All via environment variables (Compose reads `.env`; see `.env.example`). Only t
 | `LOG_LEVEL` | info | pino log level |
 
 ## Docs
-- [`docs/PLAN.md`](docs/PLAN.md): architecture, schedule, and the documentation roadmap
-- [`docs/PROVISIONING.md`](docs/PROVISIONING.md): who creates accounts, who holds which secret, idempotent provisioning
-- [`docs/DEMO.md`](docs/DEMO.md): the example client and the guided scenario
-- [`docs/SECURITY.md`](docs/SECURITY.md): threat model, controls, review results
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): layers, diagrams, request lifecycle
-- [`docs/API.md`](docs/API.md): endpoint reference, error catalogue ([`openapi.json`](docs/openapi.json))
-- [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md): ER diagram, constraints, invariants
-- [`docs/TESTING.md`](docs/TESTING.md): what every test proves, and the checks that show the tests can fail
-- [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md): load-test method, results, bottleneck analysis, what helped and what did not
-- [`docs/CONCURRENCY.md`](docs/CONCURRENCY.md): how consume stays correct under parallel requests
-- [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md): every product decision the brief left open
-- [`docs/decisions/`](docs/decisions): architecture decision records
+**Start here:** [`docs/LEARNING.md`](docs/LEARNING.md) (the concepts in plain language), then [`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md) (trace a request through the code, likely questions, live-change drills).
+
+| Topic | Doc |
+|---|---|
+| How it is built | [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) layers, diagrams, request lifecycle · [`DATA_MODEL.md`](docs/DATA_MODEL.md) ER diagram, constraints, invariants · [`CONCURRENCY.md`](docs/CONCURRENCY.md) how consume stays exact under parallel requests |
+| How to use it | [`API.md`](docs/API.md) endpoint reference and error catalogue ([`openapi.json`](docs/openapi.json), Swagger UI at `/docs`) · [`PROVISIONING.md`](docs/PROVISIONING.md) who creates accounts, who holds which secret, idempotent and self-service signup · [`DEMO.md`](docs/DEMO.md) the example client and guided scenario |
+| Decisions and judgment | [`ASSUMPTIONS.md`](docs/ASSUMPTIONS.md) every product decision the brief left open · [`decisions/`](docs/decisions/README.md) the architecture decision records (ADR-001 to ADR-008) · [`LIMITATIONS.md`](docs/LIMITATIONS.md) known limits and upgrade paths |
+| Evidence | [`TESTING.md`](docs/TESTING.md) what every test proves, and the checks that show tests can fail · [`PERFORMANCE.md`](docs/PERFORMANCE.md) load-test method, results, bottlenecks · [`SECURITY.md`](docs/SECURITY.md) threat model, controls, review results |
+| History | [`PLAN.md`](docs/PLAN.md) the plan written before building (superseded in places; see the ADRs) |

@@ -68,6 +68,14 @@ service/test         unit (rules), integration (real Postgres), concurrency
 docs/                this documentation set
 ```
 
+## Two kinds of caller
+| | Control plane (managing tenants) | Data plane (the product) |
+|---|---|---|
+| Routes | `POST /accounts` (and key recovery) | everything else |
+| Credential | admin token (or none, only if `OPEN_SIGNUP` is on, for account creation) | the account's API key |
+| Who | the operator or its provisioning backend | the calling application's backend |
+They are deliberately separate credentials that never overlap (tested). Both live in one service, which the brief allows; a larger deployment would put the control plane on an internal network. See [PROVISIONING.md](PROVISIONING.md).
+
 ## Cross-cutting
 - **Auth:** `X-API-Key` -> sha256 -> indexed lookup -> `req.account`. All handlers scope by `req.account.id`, never by client-supplied account ids.
 - **Config:** validated at boot with zod; the process refuses to start on bad config.

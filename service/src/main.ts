@@ -1,5 +1,5 @@
 import { DEMO_ADMIN_TOKEN, loadConfig } from './config';
-import { createPool } from './db/pool';
+import { createPool, waitForDatabase } from './db/pool';
 import { migrate } from './db/migrate';
 import { seedPlans } from './db/seed';
 import { buildApp } from './http/app';
@@ -10,6 +10,7 @@ async function main() {
   const app = buildApp({ pool, config });
   pool.on('error', (err) => app.log.error({ err }, 'idle database connection error (pool recovers by itself)'));
 
+  await waitForDatabase(pool, { onRetry: (err, attempt) => app.log.warn({ attempt, reason: (err as Error).message }, 'waiting for the database') });
   const applied = await migrate(pool);
   await seedPlans(pool);
   app.log.info({ applied }, 'database ready');

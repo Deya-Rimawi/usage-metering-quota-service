@@ -16,6 +16,7 @@ services:
 
   service:
     build: ./service
+    restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -37,6 +38,7 @@ services:
 
   client:
     build: ./client
+    restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

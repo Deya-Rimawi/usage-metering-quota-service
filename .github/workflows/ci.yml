@@ -8,7 +8,7 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env: { POSTGRES_PASSWORD: metering, POSTGRES_DB: metering }
-        ports: ["5433:5432"]
+        ports: ["5434:5432"]   # not 5433: the Compose database below publishes that one
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
@@ -19,6 +19,8 @@ jobs:
         working-directory: service
       - run: npm run check          # typecheck + unit + integration + concurrency tests
         working-directory: service
+        env:
+          TEST_ADMIN_DATABASE_URL: postgres://postgres:metering@localhost:5434/postgres
       - name: Full stack boots and the demo scenario passes
         run: |
           cp .env.example .env

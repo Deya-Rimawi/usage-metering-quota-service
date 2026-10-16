@@ -17,18 +17,18 @@ curl localhost:3000/ready
 ```bash
 cd service && npm install
 docker compose up -d db          # tests use the compose database on 127.0.0.1:5433
-npm run check                    # typecheck + 82 tests
+npm run check                    # typecheck + 105 tests
 (cd ../client && npm install && npm run typecheck)   # the client and load tests are TypeScript too (Node runs them directly)
 docker compose --profile tools run --rm e2e   # demo scenario against the live stack
 ```
 
 ## Predefined plans
-| Plan | Kind | Monthly allowance | Max per request |
-|---|---|---|---|
-| Starter | account | 10,000 | 100 |
-| Pro | account | 1,000,000 | 1,000 |
-| Basic | user | 500 | 20 |
-| Premium | user | 5,000 | 200 |
+| Plan | Kind | Monthly allowance | Daily allowance | Max per request |
+|---|---|---|---|---|
+| Starter | account | 10,000 | 2,000 | 100 |
+| Pro | account | 1,000,000 | 100,000 | 1,000 |
+| Basic | user | 500 | 100 | 20 |
+| Premium | user | 5,000 | 1,000 | 200 |
 
 ## Try it
 ```bash
@@ -55,8 +55,8 @@ Response (HTTP 200 whether accepted or not):
 { "accepted": false, "rule": "max_per_request", "level": "user",
   "message": "The user's plan allows at most 20 units per request; 25 requested",
   "violations": [ { "level": "user", "rule": "max_per_request", "limit": 20, "requested": 25, "remaining": null } ],
-  "user":    { "planId": "basic",   "monthlyAllowance": 500,   "maxPerRequest": 20,  "used": 0, "remaining": 500 },
-  "account": { "planId": "starter", "monthlyAllowance": 10000, "maxPerRequest": 100, "used": 0, "remaining": 10000 },
+  "user":    { "planId": "basic",   "monthlyAllowance": 500,   "dailyAllowance": 100,  "maxPerRequest": 20,  "used": 0, "remaining": 500,   "usedToday": 0, "remainingToday": 100 },
+  "account": { "planId": "starter", "monthlyAllowance": 10000, "dailyAllowance": 2000, "maxPerRequest": 100, "used": 0, "remaining": 10000, "usedToday": 0, "remainingToday": 2000 },
   "replayed": false, "requestId": "doc-123", "userId": "alice", "units": 25, "period": "2026-10" }
 ```
 Errors always look like `{"error":{"code":"...","message":"..."}}`.
@@ -68,10 +68,11 @@ Errors always look like `{"error":{"code":"...","message":"..."}}`.
 **Supported rules** (in both account and user plans; `null` = unlimited):
 | Rule | Meaning |
 |---|---|
-| `monthlyAllowance` | Total units available in a UTC calendar month |
-| `maxPerRequest` | Largest amount a single request may consume |
+| `monthlyAllowance` | Total units available in a UTC calendar month (required by the brief) |
+| `maxPerRequest` | Largest amount a single request may consume (required by the brief) |
+| `dailyAllowance` | Total units available in a UTC calendar day (**the extra rule**; [ADR-007](docs/decisions/ADR-007-daily-allowance.md)) |
 
-A request is accepted only if **all four** checks pass (user per-request, account per-request, user monthly, account monthly). A rejection consumes nothing. The response names the first broken rule in this fixed order and whether it belongs to the `user` or the `account`, and lists every broken rule in `violations`. Accepted units are added to the user's usage **and** the account's usage; the account's usage is the sum of its users'.
+A request is accepted only if **all six** checks pass (per-request, daily and monthly, each for the user and for the account). A rejection consumes nothing. The response names the first broken rule in this fixed order and whether it belongs to the `user` or the `account`, and lists every broken rule in `violations`. Accepted units are added to the user's usage **and** the account's usage, for the day and the month; the account's usage is the sum of its users'. The daily allowance behaves exactly like the monthly one: the account's is shared by its users, each user's is separate, a plan switch keeps what was already used, and a cut below usage shows 0 left and rejects.
 
 **API keys.** An admin creates an account (`POST /accounts` with `X-Admin-Token`); the response contains the account's `apiKey` **once**. The calling backend sends it as `X-API-Key` on every other call. The key identifies the account and gives access to that account's data only: another account's users and plans answer `404`; a missing or invalid key answers `401`. Only a SHA-256 hash of the key is stored. `POST /account/api-key/rotate` replaces the key (an admin can also do this if the key is lost).
 
@@ -99,9 +100,10 @@ The brief leaves some behavior open; these are the main choices (all 33, with re
 - **Creating accounts needs an admin token**, because the brief does not say who may mint accounts. The demo token is a documented default.
 - **Users are identified by the caller's own `userId`** (unique within an account; two accounts may reuse the same id).
 - **A rejection is HTTP 200 with `accepted: false`**, not an error: callers branch on `accepted`. 4xx is for bad input, bad keys, unknown users, or a reused `requestId`.
-- **Rule order is fixed** (user per-request, account per-request, user monthly, account monthly) so the reported reason is predictable.
+- **Rule order is fixed** (user per-request, account per-request, user daily, account daily, user monthly, account monthly) so the reported reason is predictable.
 - **Rejected requests are logged** and count toward no usage.
-- **`remaining` is reported for the current month only**; for past months `used` is the record (a closed month has nothing left to consume).
+- **`remaining` and the daily numbers are reported for the current month only** (daily ones describe *today*, UTC); for past months `used` is the record (a closed month has nothing left to consume).
+- **The daily allowance is the extra rule** (the brief makes extra rules optional); its interaction with account and user plans is explained in [ADR-007](docs/decisions/ADR-007-daily-allowance.md).
 - **Limits are integers** (monthly up to 1e12, per request and units up to 1e9) so every value is exact; `null` means unlimited.
 - **Plans cannot be deleted** and users cannot be removed or moved (out of scope; deleting would orphan history).
 
@@ -119,7 +121,7 @@ Full list with upgrade paths: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 - **API keys have no scopes, expiry or multiple keys per account**; only the admin endpoints are rate-limited; there is no TLS (put a proxy in front).
 - **History grows without bound** (one row per decision); partitioning and retention are not implemented.
 - **Load-test numbers are relative**, taken on one laptop with the load generator, service and database sharing CPU.
-- **No extra rule type beyond the two required ones** was added; `domain/rules.ts` shows where one would go ([`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md)).
+- **Days are UTC only** (no per-account time zone), and a daily allowance is not validated against the monthly one (the stricter simply binds first).
 
 ## Performance at a glance
 One account is decided at about **250-300 requests/s** (exact totals require serializing it); many accounts reach about **1,600 requests/s** on a laptop. Correctness invariants held across 1.2 million load-test requests. Details, method and how to reproduce: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).

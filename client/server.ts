@@ -34,9 +34,9 @@ const routes: Record<string, (body: Body) => Promise<unknown>> = {
     return { decision, result };
   },
   'POST /api/user-plan': async ({ userId, planId }) => { await demo.metering.setUserPlan(String(userId), String(planId)); return state(); },
-  'POST /api/account-limits': async ({ monthlyAllowance, maxPerRequest }) => {
+  'POST /api/account-limits': async ({ monthlyAllowance, dailyAllowance, maxPerRequest }) => {
     const toLimit = (v: unknown) => (v === '' || v === null ? null : Number(v));
-    await demo.metering.editPlan(demo.accountPlanId, { monthlyAllowance: toLimit(monthlyAllowance), maxPerRequest: toLimit(maxPerRequest) });
+    await demo.metering.editPlan(demo.accountPlanId, { monthlyAllowance: toLimit(monthlyAllowance), dailyAllowance: toLimit(dailyAllowance), maxPerRequest: toLimit(maxPerRequest) });
     return state();
   },
 };

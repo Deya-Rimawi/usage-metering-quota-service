@@ -161,3 +161,75 @@ describe('API docs', () => {
     expect(spec.components.securitySchemes.apiKey.name).toBe('X-API-Key');
   });
 });
+
+describe('daily allowance in usage, limits and history', () => {
+  async function dailySetup() {
+    const root = await createAccount(app, 'acme');
+    const c = client(app, root.key);
+    await c.put('/account/plan', { planId: await newPlan(c, 'account', 'acct', 1000, 100, 200) });
+    await newUser(c, 'alice', await newPlan(c, 'user', 'u', 500, 50, 60));
+    await newUser(c, 'bob', await newPlan(c, 'user', 'u2', 500, 50, null));
+    return { c, root };
+  }
+
+  it('limits and usage show today\'s numbers next to the monthly ones', async () => {
+    const { c } = await dailySetup();
+    await consume(c, 'alice', 25);
+    const limits = (await c.get('/users/alice/limits')).json();
+    expect(limits.user).toMatchObject({ monthlyAllowance: 500, used: 25, remaining: 475, dailyAllowance: 60, usedToday: 25, remainingToday: 35 });
+    expect(limits.account).toMatchObject({ dailyAllowance: 200, usedToday: 25, remainingToday: 175 });
+    const usageBody = (await c.get('/usage')).json();
+    expect(usageBody.account).toMatchObject({ used: 25, usedToday: 25, remainingToday: 175 });
+    const byUser = Object.fromEntries(usageBody.users.map((u: any) => [u.userId, u]));
+    expect(byUser.alice).toMatchObject({ usedToday: 25, remainingToday: 35 });
+    expect(byUser.bob).toMatchObject({ usedToday: 0, dailyAllowance: null, remainingToday: null }); // no daily limit: unlimited
+  });
+
+  it('a new UTC day starts at zero for the daily numbers while the month keeps its total', async () => {
+    const { c } = await dailySetup();
+    await consume(c, 'alice', 30);
+    now = new Date('2026-10-16T08:00:00Z');
+    const limits = (await c.get('/users/alice/limits')).json();
+    expect(limits.user).toMatchObject({ used: 30, remaining: 470, usedToday: 0, remainingToday: 60 });
+    expect((await c.get('/usage')).json().account).toMatchObject({ used: 30, usedToday: 0 });
+  });
+
+  it('past months report what was used and no daily or monthly balance (they describe now)', async () => {
+    const { c } = await dailySetup();
+    await consume(c, 'alice', 10);
+    now = new Date('2026-11-03T09:00:00Z');
+    const oct = (await c.get('/usage?period=2026-10')).json();
+    expect(oct.account).toMatchObject({ used: 10, remaining: null, usedToday: null, remainingToday: null });
+    expect(oct.users.find((u: any) => u.userId === 'alice')).toMatchObject({ used: 10, usedToday: null, remainingToday: null });
+    expect((await c.get('/users/alice/usage?period=2026-10')).json().user).toMatchObject({ used: 10, usedToday: null });
+  });
+
+  it('history records the daily rule and the balances at the time, and filters still work', async () => {
+    const { c } = await dailySetup();
+    await consume(c, 'alice', 50, 'a');
+    await consume(c, 'alice', 20, 'b'); // 50 + 20 > 60 a day
+    const { requests } = (await c.get('/requests')).json();
+    expect(requests[0]).toMatchObject({ requestId: 'b', accepted: false, rule: 'daily_allowance', level: 'user' });
+    expect(requests[0].user).toMatchObject({ dailyAllowance: 60, usedToday: 50, remainingToday: 10 });
+    expect(requests[1].user).toMatchObject({ usedToday: 50 });
+    expect((await c.get('/requests?accepted=false')).json().requests.map((r: any) => r.requestId)).toEqual(['b']);
+  });
+
+  it('decisions stored before the daily rule existed still read back (daily fields show as null)', async () => {
+    const { c, root } = await dailySetup();
+    const { rows: [u] } = await pool.query("SELECT id, account_id FROM users WHERE external_id = 'alice'");
+    const oldSide = { planId: 'basic', planName: 'Basic', monthlyAllowance: 500, maxPerRequest: 20, used: 7, remaining: 493 }; // no daily keys
+    await pool.query(
+      `INSERT INTO requests (account_id, request_id, user_id, units, period, day, accepted, violations, applied)
+       VALUES ($1, 'legacy', $2, 7, '2026-10-01', '2026-10-15', true, '[]', $3)`,
+      [u.account_id, u.id, JSON.stringify({ account: oldSide, user: oldSide })],
+    );
+    const res = await c.get('/requests');
+    expect(res.statusCode).toBe(200);
+    const legacy = res.json().requests.find((r: any) => r.requestId === 'legacy');
+    expect(legacy.user).toMatchObject({ used: 7, dailyAllowance: null, usedToday: null, remainingToday: null });
+    // and a retry of it replays instead of failing
+    expect(root).toBeDefined();
+    expect((await c.post('/consume', { userId: 'alice', units: 7, requestId: 'legacy' })).json()).toMatchObject({ replayed: true, accepted: true });
+  });
+});

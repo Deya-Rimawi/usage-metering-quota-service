@@ -8,6 +8,7 @@ type Headers = Record<string, string>;
 /** Limits to set on a plan; `null` = unlimited. */
 export interface PlanLimits {
   monthlyAllowance?: number | null;
+  dailyAllowance?: number | null;
   maxPerRequest?: number | null;
 }
 
@@ -44,9 +45,9 @@ export async function seed(
   await pool(Array.from({ length: accounts }, (_, i) => i), 8, async (i) => {
     const { account, apiKey } = await call('POST', '/accounts', { 'x-admin-token': ADMIN_TOKEN }, { name: `load-${Date.now()}-${i}` });
     const h = { 'x-api-key': apiKey };
-    const plan = await call('POST', '/plans', h, { kind: 'account', name: 'load-account', monthlyAllowance: null, maxPerRequest: null, ...accountLimits });
+    const plan = await call('POST', '/plans', h, { kind: 'account', name: 'load-account', monthlyAllowance: null, dailyAllowance: null, maxPerRequest: null, ...accountLimits });
     await call('PUT', '/account/plan', h, { planId: plan.id });
-    const userPlan = await call('POST', '/plans', h, { kind: 'user', name: 'load-user', monthlyAllowance: null, maxPerRequest: null, ...userLimits });
+    const userPlan = await call('POST', '/plans', h, { kind: 'user', name: 'load-user', monthlyAllowance: null, dailyAllowance: null, maxPerRequest: null, ...userLimits });
     const ids = Array.from({ length: users }, (_, u) => `u${u}`);
     await pool(ids, 16, (userId) => call('POST', '/users', h, { userId, planId: userPlan.id }));
     out.push({ id: account.id, key: apiKey, planId: plan.id, userPlanId: userPlan.id, users: ids });

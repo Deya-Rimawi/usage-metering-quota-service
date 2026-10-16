@@ -20,6 +20,7 @@ Because the generator, service and database share a machine, treat numbers as **
 | `spread` | 50 accounts x 20 users, nothing rejected: raw throughput when accounts do not contend |
 | `hot` | 1 account, 200 users: every request contends for the same account counter (worst case) |
 | `hot-limited` | 1 account with a 5,000-unit allowance and 5-unit requests: mostly rejections; accepted total must be exactly 5,000 |
+| `daily-limited` | 1 account with a 5,000-unit **daily** allowance and 5-unit requests: mostly rejections by the daily rule; accepted total today must be exactly 5,000 |
 | `retry-storm` | every `requestId` sent twice almost simultaneously; each must count once |
 | `plan-edits` | the user plan is edited every 50 ms during the run |
 | `mixed-reads` | 70% consume, 10% each of `/usage`, `/requests`, `/users/{id}/limits` on a hot account |
@@ -43,6 +44,22 @@ Baseline = the first implementation (ADR-004, commit `60e3e91`: about 10 round t
 \* The scenario did not exist for the baseline. Without the gate (version 3 below) the quiet tenants got **124 req/s with p50 123 ms**; with no hot neighbour at all they get about 1,640 req/s with p50 9 ms.
 
 All runs: zero HTTP errors, invariants held. **Honest reading:** uncontended throughput is up 45%, the hot account's *tail* latency is much better, and a hot tenant can no longer ruin the others. But the final version is not faster in every cell: a few contended scenarios are 4-9% lower (within noise) and the uncontended p99 is higher. Section 5 explains the trade.
+
+## 3b. Cost of the extra rule (daily allowance)
+After the daily allowance was added ([ADR-007](decisions/ADR-007-daily-allowance.md)) the consume write statement updates four counters instead of two, and the read statement fetches two more rows. Same method, same machine, median of three 15-second runs:
+
+| Scenario | Before (req/s) | With daily rule (req/s) | p99 before -> after |
+|---|---:|---:|---|
+| spread | 1,560 | 1,662 | 102 -> 99 ms |
+| hot | 250 | 259 | 315 -> 401 ms |
+| hot-limited | 253 | 270 | 305 -> 280 ms |
+| retry-storm | 1,232 | 1,497 | 134 -> 101 ms |
+| plan-edits | 220 | 257 | 400 -> 266 ms |
+| mixed-reads | 311 | 363 | 374 -> 282 ms |
+| noisy-neighbor (quiet tenants) | 1,375 | 1,387 | 29 -> 27 ms |
+| daily-limited (new) | n/a | 268 | 260 ms |
+
+**Reading it honestly:** no measurable cost. Every difference is inside the run-to-run noise of about +-10% (some are higher, which is noise, not an improvement caused by the rule). The reason is that the lock hold time is dominated by the commit's disk flush and the round trips, not by two more upserts of rows that are already in cache. All invariants held in all 8 scenarios, now including the daily ones (counters equal the log per day, account = sum of users per day, no decision above its daily allowance), and `daily-limited` accepted exactly 5,000 units.
 
 ## 4. How it got there (each step measured)
 | Version | Change | spread | hot | noisy-neighbor (quiet) |

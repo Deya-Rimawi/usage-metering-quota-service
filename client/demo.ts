@@ -71,6 +71,14 @@ export async function runScenario({ metering, accountPlanId }: Demo): Promise<St
     metering.setUserPlan('alice', 'premium'));
   await act('alice retries 25 units with a new requestId: now accepted', 'alice', 25, { accepted: true });
 
+  // The extra rule: a daily allowance. Account usage today is 135, so a cap of 150 leaves 15.
+  await config('CONFIGURE: cap the account at 150 units per day (PATCH /plans dailyAllowance, no client change)', () =>
+    metering.editPlan(accountPlanId, { dailyAllowance: 150 }));
+  await act('bob asks for 20: the month and his plan have room, but only 15 are left TODAY on the shared account', 'bob', 20, { accepted: false, rule: 'daily_allowance', level: 'account' });
+  await config('CONFIGURE: lift the daily cap (dailyAllowance null = unlimited)', () =>
+    metering.editPlan(accountPlanId, { dailyAllowance: null }));
+  await act('the same request for bob (new requestId) is accepted again', 'bob', 20, { accepted: true });
+
   await act("network retry of alice's ORIGINAL rejected request returns the same stored answer", 'alice', 25, { accepted: false, rule: 'max_per_request', level: 'user', replayed: true }, tooBig.requestId);
   await act('network retry of her first accepted request does not count twice', 'alice', 10, { accepted: true, replayed: true }, first.requestId);
   return steps;

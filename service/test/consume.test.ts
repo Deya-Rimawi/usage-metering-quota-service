@@ -342,3 +342,131 @@ describe('concurrency with a higher per-account limit and consistent reads', () 
     await Promise.all([...writes, ...reads]);
   });
 });
+
+describe('daily allowance (the extra rule)', () => {
+  const at = (iso: string) => { now = new Date(iso); };
+
+  it('a user daily limit rejects a request that every other limit allows, and says which rule and level', async () => {
+    const { c } = await setup(null, null);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'u', 1000, null, 30));
+    expect((await consume(c, 'alice', 20)).accepted).toBe(true);
+    const r = await consume(c, 'alice', 20);
+    expect(r).toMatchObject({ accepted: false, rule: 'daily_allowance', level: 'user' });
+    expect(r.violations[0]).toMatchObject({ limit: 30, remaining: 10 });
+    expect(r.message).toContain('daily allowance');
+    expect(r.user).toMatchObject({ dailyAllowance: 30, usedToday: 20, remainingToday: 10, used: 20, remaining: 980 }); // rejection added nothing
+    expect((await consume(c, 'alice', 10)).accepted).toBe(true); // exactly what is left today still fits
+  });
+
+  it('an account daily limit is shared: another user is stopped even though their own limits have room', async () => {
+    const root = await createAccount(app, 'acme');
+    const c = client(app, root.key);
+    await c.put('/account/plan', { planId: await newPlan(c, 'account', 'a', 10_000, null, 50) });
+    const plan = await newPlan(c, 'user', 'u', null, null, null);
+    await newUser(c, 'alice', plan);
+    await newUser(c, 'bob', plan);
+    expect((await consume(c, 'alice', 40)).accepted).toBe(true);
+    const r = await consume(c, 'bob', 20);
+    expect(r).toMatchObject({ accepted: false, rule: 'daily_allowance', level: 'account' });
+    expect(r.account).toMatchObject({ usedToday: 40, remainingToday: 10 });
+    expect(r.user).toMatchObject({ usedToday: 0, remainingToday: null }); // bob has no daily limit of his own
+  });
+
+  it('resets at 00:00 UTC while the monthly total keeps counting', async () => {
+    const { c } = await setup(null, null);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'u', 50, null, 30));
+    at('2026-10-15T23:59:59Z');
+    expect((await consume(c, 'alice', 30)).accepted).toBe(true);
+    expect((await consume(c, 'alice', 1)).accepted).toBe(false); // today is used up
+    at('2026-10-16T00:00:01Z');
+    const next = await consume(c, 'alice', 20);
+    expect(next.accepted).toBe(true);
+    expect(next.user).toMatchObject({ usedToday: 20, remainingToday: 10, used: 50, remaining: 0 }); // new day, same month
+    const monthly = await consume(c, 'alice', 1);
+    expect(monthly).toMatchObject({ accepted: false, rule: 'monthly_allowance', level: 'user' }); // now the MONTH binds, not the day
+    expect(await brokenInvariants(pool)).toEqual([]);
+  });
+
+  it('is checked before the monthly allowance, so the shorter window is the reported reason', async () => {
+    const { c } = await setup(null, null);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'u', 10, null, 10));
+    const r = await consume(c, 'alice', 11);
+    expect(r).toMatchObject({ rule: 'daily_allowance', level: 'user' });
+    expect(r.violations.map((v: any) => v.rule)).toEqual(['daily_allowance', 'monthly_allowance']); // both listed
+  });
+
+  it('switching plans keeps units already used today (no fresh daily allowance)', async () => {
+    const { c } = await setup(null, null);
+    const small = await newPlan(c, 'user', 'small', null, null, 30);
+    const big = await newPlan(c, 'user', 'big', null, null, 40);
+    await newUser(c, 'alice', small);
+    await consume(c, 'alice', 25);
+    await c.put('/users/alice/plan', { planId: big });
+    const r = await consume(c, 'alice', 15);
+    expect(r).toMatchObject({ accepted: true });
+    expect(r.user).toMatchObject({ usedToday: 40, remainingToday: 0 }); // 25 carried over; not 40 fresh
+    expect((await consume(c, 'alice', 1)).accepted).toBe(false);
+  });
+
+  it('an edit applies to the next request; a cut below usage shows 0 left today and rejects until raised', async () => {
+    const { c } = await setup(null, null);
+    const plan = await newPlan(c, 'user', 'p', null, null, 100);
+    await newUser(c, 'alice', plan);
+    await consume(c, 'alice', 80);
+    await c.patch(`/plans/${plan}`, { dailyAllowance: 50 });
+    const cut = await consume(c, 'alice', 1);
+    expect(cut).toMatchObject({ accepted: false, rule: 'daily_allowance' });
+    expect(cut.user).toMatchObject({ usedToday: 80, remainingToday: 0 });
+    await c.patch(`/plans/${plan}`, { dailyAllowance: null }); // unlimited
+    expect((await consume(c, 'alice', 1)).accepted).toBe(true);
+  });
+
+  it('a retry on a later day replays the stored decision and charges nothing to the new day', async () => {
+    const { c } = await setup(null, null);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'p', null, null, 100));
+    at('2026-10-15T10:00:00Z');
+    await consume(c, 'alice', 10, 'r1');
+    at('2026-10-16T10:00:00Z');
+    expect(await consume(c, 'alice', 10, 'r1')).toMatchObject({ replayed: true, accepted: true });
+    const { rows } = await pool.query("SELECT COALESCE(sum(units), 0)::int AS n FROM user_daily_usage WHERE day = '2026-10-16'");
+    expect(rows[0].n).toBe(0);
+    expect(await brokenInvariants(pool)).toEqual([]);
+  });
+
+  it('a request that queues across midnight is charged to the new day', async () => {
+    let calls = 0;
+    const turning = makeApp(pool, () => (++calls === 1 ? new Date('2026-10-15T23:59:59.9Z') : new Date('2026-10-16T00:00:00.1Z')));
+    const root = await createAccount(turning, 'acme');
+    const c = client(turning, root.key);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'p', null, null, 100));
+    calls = 0;
+    expect(await consume(c, 'alice', 5)).toMatchObject({ accepted: true });
+    const { rows } = await pool.query('SELECT day::text, units FROM user_daily_usage ORDER BY day');
+    expect(rows).toEqual([{ day: '2026-10-16', units: 5 }]);
+    await turning.close();
+  });
+
+  it('200 parallel requests against a 100-unit daily allowance (two instances): exactly 100 accepted', async () => {
+    const { c, root } = await setup(null, null);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'p', null, null, 100));
+    const racers = twoInstances(root.key);
+    const results = await Promise.all(Array.from({ length: 200 }, () => consume(racers, 'alice', 1)));
+    expect(results.filter((r) => r.accepted)).toHaveLength(100);
+    expect(results.filter((r) => !r.accepted).every((r) => r.rule === 'daily_allowance' && r.level === 'user')).toBe(true);
+    expect((await pool.query('SELECT units FROM user_daily_usage')).rows[0].units).toBe(100);
+    expect(await brokenInvariants(pool)).toEqual([]);
+  });
+
+  it('many users racing for a shared daily allowance never exceed it', async () => {
+    const root = await createAccount(app, 'acme');
+    const c = client(app, root.key);
+    await c.put('/account/plan', { planId: await newPlan(c, 'account', 'a', null, null, 90) });
+    const plan = await newPlan(c, 'user', 'p', null, null, null);
+    for (let i = 0; i < 6; i++) await newUser(c, `u${i}`, plan);
+    const racers = twoInstances(root.key);
+    const results = await Promise.all(Array.from({ length: 120 }, (_, i) => consume(racers, `u${i % 6}`, 3)));
+    expect(results.filter((r) => r.accepted)).toHaveLength(30); // 30 x 3 units = 90 exactly
+    expect((await pool.query('SELECT units FROM account_daily_usage')).rows[0].units).toBe(90);
+    expect(await brokenInvariants(pool)).toEqual([]);
+  });
+});

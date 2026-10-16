@@ -9,7 +9,8 @@ type LoadRequest = autocannon.Request;
 export interface Prepared {
   accounts: SeededAccount[];               // verified afterwards (and reported)
   requests: LoadRequest[];                 // what autocannon fires
-  expectAccountUsed?: number;              // exact total the accepted usage must reach
+  expectAccountUsed?: number;              // exact monthly total the accepted usage must reach
+  expectAccountUsedToday?: number;         // exact daily total the accepted usage must reach
   expectDuplicates?: boolean;              // the run must contain replayed requests
   background?: { accounts: SeededAccount[]; requests: LoadRequest[]; connections: number }; // a noisy neighbour
   start?: () => void;                      // side activity during the run (e.g. plan edits)
@@ -63,6 +64,13 @@ export const scenarios: Record<string, Scenario> = {
     async prepare() {
       const accounts = await seed({ accounts: 1, users: 200, accountLimits: { monthlyAllowance: 5_000 } });
       return { accounts, requests: consumeRequest(accounts, { units: 5 }), expectAccountUsed: 5_000 };
+    },
+  },
+  'daily-limited': {
+    about: '1 account with a 5,000-unit DAILY allowance (monthly unlimited) and 5-unit requests: ~1,000 accepted, everything after that rejected by the daily rule. Accepted usage must equal the daily allowance exactly.',
+    async prepare() {
+      const accounts = await seed({ accounts: 1, users: 200, accountLimits: { dailyAllowance: 5_000 } });
+      return { accounts, requests: consumeRequest(accounts, { units: 5 }), expectAccountUsedToday: 5_000 };
     },
   },
   'retry-storm': {

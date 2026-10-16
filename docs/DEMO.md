@@ -16,8 +16,8 @@ On start the client creates a demo account and two users:
 | Who | Plan | Limits |
 |---|---|---|
 | Account | custom "Demo Account" | 100 units/month, 40 per request |
-| alice | predefined **Basic** | 500/month, 20 per request |
-| bob | predefined **Premium** | 5,000/month, 200 per request |
+| alice | predefined **Basic** | 500/month, 100/day, 20 per request |
+| bob | predefined **Premium** | 5,000/month, 1,000/day, 200 per request |
 
 The account's small allowance is deliberate: it is easy to hit the *shared* limit while a user still has plenty.
 
@@ -29,8 +29,9 @@ The account's small allowance is deliberate: it is easy to hit the *shared* limi
    4. bob asks for 20: rejected by the **account** monthly allowance (10 left) although bob has thousands left
    5. *Configure:* raise the account allowance to 500 (`PATCH /plans/{id}`), then bob's request is accepted
    6. *Configure:* switch alice to Premium (`PUT /users/alice/plan`), then her 25-unit request is accepted
-   7. Retrying an old request id returns the stored answer (`replayed`) and counts nothing twice
-2. Or do it by hand: pick a user, enter pages, **Process**. **Retry last request** resends the same `requestId`. Use the "Change the rules" panel to switch a user's plan or edit the account limits and process again.
+   7. *Configure (the extra rule):* cap the account at 150 units **per day** (`PATCH /plans`, `dailyAllowance`). 135 were used today, so bob's 20-unit request is **rejected by the account's daily allowance** although the month and his plan have plenty left. Lift the cap (`null` = unlimited) and the same request is accepted
+   8. Retrying an old request id returns the stored answer (`replayed`) and counts nothing twice
+2. Or do it by hand: pick a user, enter pages, **Process**. **Retry last request** resends the same `requestId`. Use the "Change the rules" panel to switch a user's plan or edit the account limits (monthly, daily, per request) and process again. The balances panel shows the monthly numbers and, when a daily limit is set, today's.
 
 ## Why this shows "no client code change"
 The only metering call in the business path is `consume()` ([`client/metering-client.ts`](../client/metering-client.ts)). Changing limits goes through *configuration* endpoints; `consume()` and the code around it are identical before and after, yet the same request gets a different answer.

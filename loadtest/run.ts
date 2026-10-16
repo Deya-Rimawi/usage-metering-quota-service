@@ -57,8 +57,11 @@ async function runOnce(name: string): Promise<RunResult> {
   const allAccounts = [...prepared.accounts, ...(prepared.background?.accounts ?? [])];
   // "Accepted usage equals the allowance exactly" only means something once the run pushed past the allowance.
   const limitReached = rejected > 0;
-  const check = await verify(DATABASE_URL, allAccounts.map((a) => a.id), { expectAccountUsed: limitReached ? prepared.expectAccountUsed : undefined });
-  if (prepared.expectAccountUsed !== undefined && !limitReached) {
+  const check = await verify(DATABASE_URL, allAccounts.map((a) => a.id), {
+    expectAccountUsed: limitReached ? prepared.expectAccountUsed : undefined,
+    expectAccountUsedToday: limitReached ? prepared.expectAccountUsedToday : undefined,
+  });
+  if ((prepared.expectAccountUsed !== undefined || prepared.expectAccountUsedToday !== undefined) && !limitReached) {
     check.problems.push('the allowance was never reached, so this run cannot show exact-limit behavior: use --duration 8 or more');
   }
   if (prepared.expectDuplicates && replayed === 0) check.problems.push('expected replays but saw none');

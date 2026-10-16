@@ -80,10 +80,11 @@
       <label>Account plan (custom, editable)</label>
       <div class="row" style="margin-top:0">
         <input id="accMonthly" type="number" min="1" placeholder="monthly" aria-label="Account monthly allowance" style="flex:1">
+        <input id="accDaily" type="number" min="1" placeholder="daily" aria-label="Account daily allowance" style="flex:1">
         <input id="accPerReq" type="number" min="1" placeholder="per request" aria-label="Account max per request" style="flex:1">
       </div>
       <div class="row"><button id="saveAccount" class="secondary">Save account limits</button></div>
-      <p class="small">Blank = unlimited. Takes effect on the next request; units already used are kept.</p>
+      <p class="small">Monthly / daily / per request. Blank = unlimited. Takes effect on the next request; units already used are kept.</p>
     </section>
   </div>
 
@@ -122,7 +123,8 @@ function meter(title, planLine, s) {
   const pct = s.monthlyAllowance ? Math.min(100, (s.used / s.monthlyAllowance) * 100) : 0;
   return `<div style="margin-bottom:14px"><div class="who"><strong>${esc(title)}</strong><span class="small">${esc(planLine)}</span></div>
     <div class="meter ${s.remaining === 0 ? 'full' : ''}"><div style="width:${pct}%"></div></div>
-    <div class="small">${s.used.toLocaleString()} used · <strong>${fmt(s.remaining)}</strong> remaining of ${fmt(s.monthlyAllowance)} · max ${fmt(s.maxPerRequest)} per request</div></div>`;
+    <div class="small">${s.used.toLocaleString()} used · <strong>${fmt(s.remaining)}</strong> remaining of ${fmt(s.monthlyAllowance)} this month · max ${fmt(s.maxPerRequest)} per request</div>
+    ${s.dailyAllowance === null ? '' : `<div class="small">today: ${s.usedToday.toLocaleString()} used · <strong>${fmt(s.remainingToday)}</strong> remaining of ${fmt(s.dailyAllowance)} per day</div>`}</div>`;
 }
 
 function render(st) {
@@ -137,13 +139,13 @@ function render(st) {
   const userPlans = plans.filter((p) => p.kind === 'user');
   $('userPlans').innerHTML = usage.users.map((u) => `<label for="plan-${esc(u.userId)}">${esc(u.userId)}'s plan</label>
     <select id="plan-${esc(u.userId)}" data-user="${esc(u.userId)}">${userPlans.map((p) =>
-      `<option value="${esc(p.id)}" ${p.id === u.planId ? 'selected' : ''}>${esc(p.name)} (${fmt(p.monthlyAllowance)}/mo, ${fmt(p.maxPerRequest)}/req)</option>`).join('')}</select>`).join('');
+      `<option value="${esc(p.id)}" ${p.id === u.planId ? 'selected' : ''}>${esc(p.name)} (${fmt(p.monthlyAllowance)}/mo${p.dailyAllowance === null ? '' : `, ${fmt(p.dailyAllowance)}/day`}, ${fmt(p.maxPerRequest)}/req)</option>`).join('')}</select>`).join('');
   document.querySelectorAll('#userPlans select').forEach((s) => s.addEventListener('change', () =>
     run(async () => render(await api('/api/user-plan', { userId: s.dataset.user, planId: s.value })))));
 
   const ap = plans.find((p) => p.id === accountPlanId);
-  if (ap && document.activeElement !== $('accMonthly') && document.activeElement !== $('accPerReq')) {
-    $('accMonthly').value = ap.monthlyAllowance ?? ''; $('accPerReq').value = ap.maxPerRequest ?? '';
+  if (ap && ![$('accMonthly'), $('accDaily'), $('accPerReq')].includes(document.activeElement)) {
+    $('accMonthly').value = ap.monthlyAllowance ?? ''; $('accDaily').value = ap.dailyAllowance ?? ''; $('accPerReq').value = ap.maxPerRequest ?? '';
   }
 
   $('history').innerHTML = st.history.map((r) => `<tr><td>${esc(r.userId)}</td><td>${r.units}</td>
@@ -173,7 +175,7 @@ $('retry').addEventListener('click', () => run(async () => {
   await process(last.requestId);
 }));
 $('saveAccount').addEventListener('click', () => run(async () =>
-  render(await api('/api/account-limits', { monthlyAllowance: $('accMonthly').value, maxPerRequest: $('accPerReq').value }))));
+  render(await api('/api/account-limits', { monthlyAllowance: $('accMonthly').value, dailyAllowance: $('accDaily').value, maxPerRequest: $('accPerReq').value }))));
 $('reset').addEventListener('click', () => run(async () => { last = null; $('decision').innerHTML = ''; $('steps').innerHTML = ''; render(await api('/api/reset', {})); }));
 $('scenario').addEventListener('click', () => run(async () => {
   const out = await api('/api/scenario', {});

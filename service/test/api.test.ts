@@ -48,7 +48,7 @@ describe('API key authentication', () => {
 
   it('new accounts default to the Starter plan', async () => {
     const { key } = await createAccount(app, 'acme');
-    expect((await client(app, key).get('/account')).json().plan).toMatchObject({ id: 'starter', monthlyAllowance: 10000, maxPerRequest: 100 });
+    expect((await client(app, key).get('/account')).json().plan).toMatchObject({ id: 'starter', monthlyAllowance: 10000, dailyAllowance: 2000, maxPerRequest: 100 });
   });
 });
 
@@ -119,6 +119,19 @@ describe('custom plans', () => {
     expect(upd).toMatchObject({ monthlyAllowance: null, maxPerRequest: 10 });
     expect((await c.get('/users/a')).json().plan.monthlyAllowance).toBeNull();
     expect((await c.get('/users/b')).json().plan.monthlyAllowance).toBeNull();
+  });
+
+  it('plans carry a daily allowance: create it, edit it, clear it with null; invalid values are refused', async () => {
+    const { key } = await createAccount(app, 'acme');
+    const c = client(app, key);
+    const made = (await c.post('/plans', { kind: 'user', name: 'Daily', monthlyAllowance: 1000, dailyAllowance: 50, maxPerRequest: 10 })).json();
+    expect(made).toMatchObject({ monthlyAllowance: 1000, dailyAllowance: 50, maxPerRequest: 10 });
+    expect((await c.patch(`/plans/${made.id}`, { dailyAllowance: 75 })).json()).toMatchObject({ dailyAllowance: 75, monthlyAllowance: 1000 }); // others unchanged
+    expect((await c.patch(`/plans/${made.id}`, { dailyAllowance: null })).json().dailyAllowance).toBeNull();
+    expect((await c.post('/plans', { kind: 'user', name: 'NoDaily' })).json().dailyAllowance).toBeNull(); // omitted = unlimited
+    for (const bad of [0, -1, 2.5, 10 ** 13]) expect((await c.post('/plans', { kind: 'user', name: 'x' + bad, dailyAllowance: bad })).statusCode).toBe(422);
+    const predefined = (await c.get('/plans')).json().plans.find((p: any) => p.id === 'basic');
+    expect(predefined).toMatchObject({ monthlyAllowance: 500, dailyAllowance: 100, maxPerRequest: 20 });
   });
 
   it('rejects invalid limits and duplicate names', async () => {

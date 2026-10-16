@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { evaluate, remainingUnits, type Side } from '../src/domain/rules';
-import { parsePeriod, periodOf } from '../src/domain/period';
+import { evaluate, remainingToday, remainingUnits, type Side } from '../src/domain/rules';
+import { dayOf, parsePeriod, periodOf } from '../src/domain/period';
 
-const side = (monthly: number | null, perRequest: number | null, used = 0): Side => ({ limits: { monthlyAllowance: monthly, maxPerRequest: perRequest }, used });
+const side = (monthly: number | null, perRequest: number | null, used = 0, daily: number | null = null, usedToday = 0): Side => ({
+  limits: { monthlyAllowance: monthly, dailyAllowance: daily, maxPerRequest: perRequest }, used, usedToday,
+});
 const rules = (units: number, user: Side, account: Side) => evaluate(units, user, account).map((v) => `${v.level}:${v.rule}`);
 
 describe('evaluate', () => {
@@ -30,8 +32,12 @@ describe('evaluate', () => {
   });
 
   it('reports every broken rule, primary first, in the documented order', () => {
-    const v = rules(500, side(100, 20, 90), side(100, 100, 95));
-    expect(v).toEqual(['user:max_per_request', 'account:max_per_request', 'user:monthly_allowance', 'account:monthly_allowance']);
+    const v = rules(500, side(100, 20, 90, 50, 40), side(100, 100, 95, 60, 55));
+    expect(v).toEqual([
+      'user:max_per_request', 'account:max_per_request',
+      'user:daily_allowance', 'account:daily_allowance',
+      'user:monthly_allowance', 'account:monthly_allowance',
+    ]);
   });
 
   it('monthly violation carries the remaining balance', () => {
@@ -46,12 +52,51 @@ describe('evaluate', () => {
   });
 });
 
+describe('daily allowance (the extra rule)', () => {
+  it('a request inside every other limit is rejected by the daily allowance alone', () => {
+    // user: 1000/month, 100/day, 30 used today; account unlimited. 80 requested: month and per-request fine, day not.
+    expect(rules(80, side(1000, null, 30, 100, 30), side(null, null))).toEqual(['user:daily_allowance']);
+    expect(rules(80, side(null, null), side(10_000, null, 0, 100, 30))).toEqual(['account:daily_allowance']);
+  });
+
+  it('boundaries: exactly the remaining units today is allowed, one more is not', () => {
+    expect(rules(70, side(null, null, 0, 100, 30), side(null, null))).toEqual([]);
+    expect(rules(71, side(null, null, 0, 100, 30), side(null, null))).toEqual(['user:daily_allowance']);
+  });
+
+  it('is checked before the monthly allowance (shorter window first) but after per-request', () => {
+    expect(rules(50, side(10, null, 0, 20, 0), side(null, null))).toEqual(['user:daily_allowance', 'user:monthly_allowance']);
+    expect(rules(50, side(null, 10, 0, 20, 0), side(null, null))).toEqual(['user:max_per_request', 'user:daily_allowance']);
+  });
+
+  it('a daily allowance bigger than the monthly one changes nothing (the monthly rule still binds)', () => {
+    expect(rules(60, side(50, null, 0, 1000, 0), side(null, null))).toEqual(['user:monthly_allowance']);
+  });
+
+  it('null daily limit means unlimited, and a cut below usage today shows 0 remaining and rejects', () => {
+    expect(rules(1_000_000, side(null, null, 0, null, 5e11), side(null, null))).toEqual([]);
+    const over = side(null, null, 0, 50, 80);
+    expect(remainingToday(over)).toBe(0);
+    expect(rules(1, over, side(null, null))).toEqual(['user:daily_allowance']);
+  });
+
+  it('the violation reports the balance left today', () => {
+    const [v] = evaluate(10, side(null, null, 0, 100, 95), side(null, null));
+    expect(v).toMatchObject({ level: 'user', rule: 'daily_allowance', limit: 100, requested: 10, remaining: 5 });
+  });
+});
+
 describe('period', () => {
   it('buckets by UTC calendar month', () => {
     expect(periodOf(new Date('2026-10-31T23:59:59.999Z'))).toBe('2026-10-01');
     expect(periodOf(new Date('2026-11-01T00:00:00.000Z'))).toBe('2026-11-01');
     expect(periodOf(new Date('2026-12-31T23:59:59Z'))).toBe('2026-12-01');
     expect(periodOf(new Date('2027-01-01T00:00:00Z'))).toBe('2027-01-01');
+  });
+  it('buckets daily usage by UTC day', () => {
+    expect(dayOf(new Date('2026-10-16T23:59:59.999Z'))).toBe('2026-10-16');
+    expect(dayOf(new Date('2026-10-17T00:00:00.000Z'))).toBe('2026-10-17');
+    expect(dayOf(new Date('2026-12-31T23:30:00Z'))).toBe('2026-12-31');
   });
   it('parses the API format', () => {
     expect(parsePeriod('2026-10')).toBe('2026-10-01');

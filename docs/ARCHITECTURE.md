@@ -47,7 +47,7 @@ sequenceDiagram
   else first time
     S->>D: evaluate(units, user, account)
     D-->>S: violations (empty = accepted)
-    S->>DB: one statement: log the decision (+ add units to both counters if accepted); COMMIT
+    S->>DB: one statement: log the decision (+ add units to the four counters if accepted); COMMIT
     S-->>H: result
   end
   H-->>C: 200 {accepted, rule, level, remaining...}

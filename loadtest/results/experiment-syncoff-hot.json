@@ -1,0 +1,89 @@
+{
+  "label": "experiment-syncoff-hot",
+  "duration": 15,
+  "connections": 64,
+  "runs": 3,
+  "when": "2026-10-16T15:31:21.512Z",
+  "summary": [
+    {
+      "scenario": "hot",
+      "runs": [
+        {
+          "scenario": "hot",
+          "rps": 620,
+          "p50": 100,
+          "p97_5": 137,
+          "p99": 147,
+          "max": 197,
+          "total": 9303,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 9303,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 9367,
+          "waits": {
+            "Client:ClientRead": 0.44,
+            "idle in transaction": 0.17,
+            "active": 0.41
+          }
+        },
+        {
+          "scenario": "hot",
+          "rps": 690,
+          "p50": 90,
+          "p97_5": 114,
+          "p99": 125,
+          "max": 146,
+          "total": 10352,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 10352,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 10416,
+          "waits": {
+            "Client:ClientRead": 0.38,
+            "active": 0.58,
+            "idle in transaction": 0.1,
+            "Timeout:VacuumDelay": 0.28
+          }
+        },
+        {
+          "scenario": "hot",
+          "rps": 571,
+          "p50": 110,
+          "p97_5": 171,
+          "p99": 185,
+          "max": 196,
+          "total": 8572,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 8572,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 8636,
+          "waits": {
+            "active": 0.47,
+            "idle in transaction": 0.09,
+            "Client:ClientRead": 0.44
+          }
+        }
+      ],
+      "rps": 620,
+      "p50": 100,
+      "p99": 147,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

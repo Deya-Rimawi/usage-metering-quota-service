@@ -1,0 +1,99 @@
+{
+  "label": "sweep-c1-noisy-neighbor",
+  "duration": 10,
+  "connections": 64,
+  "runs": 3,
+  "when": "2026-10-16T15:17:27.600Z",
+  "summary": [
+    {
+      "scenario": "noisy-neighbor",
+      "runs": [
+        {
+          "scenario": "noisy-neighbor",
+          "rps": 1502,
+          "p50": 9,
+          "p97_5": 22,
+          "p99": 26,
+          "max": 82,
+          "total": 15021,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 15021,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "backgroundRps": 164,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 16888,
+          "waits": {
+            "Client:ClientRead": 2.46,
+            "IO:WALSync": 0.95,
+            "LWLock:WALWrite": 4.27,
+            "active": 0.75,
+            "idle in transaction": 0.24,
+            "IO:DataFileExtend": 0.01
+          }
+        },
+        {
+          "scenario": "noisy-neighbor",
+          "rps": 1396,
+          "p50": 9,
+          "p97_5": 23,
+          "p99": 27,
+          "max": 57,
+          "total": 13963,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 13963,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "backgroundRps": 144,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 15467,
+          "waits": {
+            "Client:ClientRead": 2.82,
+            "IO:WALSync": 1,
+            "LWLock:WALWrite": 4.49,
+            "active": 0.88,
+            "idle in transaction": 0.27,
+            "IO:DataFileExtend": 0.01
+          }
+        },
+        {
+          "scenario": "noisy-neighbor",
+          "rps": 1476,
+          "p50": 9,
+          "p97_5": 22,
+          "p99": 26,
+          "max": 45,
+          "total": 14760,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 14760,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "backgroundRps": 153,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 16347,
+          "waits": {
+            "Client:ClientRead": 3.21,
+            "IO:WALSync": 0.98,
+            "LWLock:WALWrite": 4.22,
+            "active": 0.84,
+            "idle in transaction": 0.29
+          }
+        }
+      ],
+      "rps": 1476,
+      "p50": 9,
+      "p99": 26,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

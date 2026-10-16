@@ -1,0 +1,13 @@
+{
+  "name": "metering-loadtest",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "run": "node run.mjs"
+  },
+  "dependencies": {
+    "autocannon": "^8.0.0",
+    "pg": "^8.23.1"
+  }
+}

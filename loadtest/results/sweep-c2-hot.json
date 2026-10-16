@@ -1,0 +1,91 @@
+{
+  "label": "sweep-c2-hot",
+  "duration": 10,
+  "connections": 64,
+  "runs": 3,
+  "when": "2026-10-16T15:18:40.711Z",
+  "summary": [
+    {
+      "scenario": "hot",
+      "runs": [
+        {
+          "scenario": "hot",
+          "rps": 261,
+          "p50": 239,
+          "p97_5": 298,
+          "p99": 303,
+          "max": 305,
+          "total": 2608,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2608,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2666,
+          "waits": {
+            "IO:WALSync": 0.55,
+            "active": 0.27,
+            "Client:ClientRead": 0.16,
+            "idle in transaction": 0.03
+          }
+        },
+        {
+          "scenario": "hot",
+          "rps": 271,
+          "p50": 235,
+          "p97_5": 256,
+          "p99": 260,
+          "max": 275,
+          "total": 2708,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2708,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2772,
+          "waits": {
+            "IO:WALSync": 0.64,
+            "active": 0.14,
+            "Client:ClientRead": 0.14,
+            "idle in transaction": 0.07
+          }
+        },
+        {
+          "scenario": "hot",
+          "rps": 255,
+          "p50": 248,
+          "p97_5": 299,
+          "p99": 305,
+          "max": 313,
+          "total": 2547,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2547,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2608,
+          "waits": {
+            "Client:ClientRead": 0.19,
+            "IO:WALSync": 0.54,
+            "active": 0.21,
+            "idle in transaction": 0.02
+          }
+        }
+      ],
+      "rps": 261,
+      "p50": 239,
+      "p99": 303,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

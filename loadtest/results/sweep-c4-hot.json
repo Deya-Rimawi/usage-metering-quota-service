@@ -1,0 +1,92 @@
+{
+  "label": "sweep-c4-hot",
+  "duration": 10,
+  "connections": 64,
+  "runs": 3,
+  "when": "2026-10-16T15:20:31.561Z",
+  "summary": [
+    {
+      "scenario": "hot",
+      "runs": [
+        {
+          "scenario": "hot",
+          "rps": 244,
+          "p50": 253,
+          "p97_5": 323,
+          "p99": 363,
+          "max": 367,
+          "total": 2436,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2436,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2500,
+          "waits": {
+            "active": 0.23,
+            "Client:ClientRead": 0.16,
+            "IO:WALSync": 0.52,
+            "idle in transaction": 0.06,
+            "IO:DataFileExtend": 0.01
+          }
+        },
+        {
+          "scenario": "hot",
+          "rps": 253,
+          "p50": 251,
+          "p97_5": 287,
+          "p99": 294,
+          "max": 296,
+          "total": 2528,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2528,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2592,
+          "waits": {
+            "IO:WALSync": 0.6,
+            "Client:ClientRead": 0.19,
+            "active": 0.17,
+            "idle in transaction": 0.05
+          }
+        },
+        {
+          "scenario": "hot",
+          "rps": 242,
+          "p50": 262,
+          "p97_5": 303,
+          "p99": 308,
+          "max": 316,
+          "total": 2417,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2417,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2481,
+          "waits": {
+            "Client:ClientRead": 0.14,
+            "active": 0.3,
+            "idle in transaction": 0.09,
+            "IO:WALSync": 0.48
+          }
+        }
+      ],
+      "rps": 244,
+      "p50": 253,
+      "p99": 308,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

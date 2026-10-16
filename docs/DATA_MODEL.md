@@ -27,7 +27,7 @@ erDiagram
 | `accounts` | A calling application. Stores only `sha256(api_key)`. |
 | `users` | A user of an account. `(account_id, external_id)` is unique; `external_id` is the caller's own `userId`. |
 | `account_usage` / `user_usage` | Running totals, one row per owner per UTC month (`period` = first day of the month). **Not keyed by plan**, so a plan switch cannot reset usage. |
-| `requests` | Every decision: the idempotency record, the audit trail, and the source of truth the counters are checked against. `applied` snapshots the limits and balances used. |
+| `requests` | Every decision: the idempotency record, the audit trail, and the source of truth the counters are checked against. `applied` snapshots the limits and balances used. A row is written with its final decision in one statement (`accepted` is `NOT NULL`, migration 002). |
 
 ## Constraints worth knowing
 | Constraint | What it guarantees |
@@ -47,4 +47,4 @@ erDiagram
 ## Invariants (checked by tests from the DB)
 - **I1** every counter = sum of accepted units in `requests` for that owner and month
 - **I5** `account_usage` = sum of its users' `user_usage` for that month
-(I2-I4 and how they hold: see [CONCURRENCY.md](CONCURRENCY.md).)
+(I2-I6 and how they hold: see [CONCURRENCY.md](CONCURRENCY.md).)

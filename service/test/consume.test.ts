@@ -5,10 +5,11 @@ import { brokenInvariants, client, consume, createAccount, makeApp, newPlan, new
 
 let pool: pg.Pool;
 let app: FastifyInstance;
+let app2: FastifyInstance; // a second "service instance": its own in-process gate, same database
 let now = new Date('2026-10-15T12:00:00Z');
-beforeAll(async () => { pool = await setupTestDb(); app = makeApp(pool, () => now); });
+beforeAll(async () => { pool = await setupTestDb(); app = makeApp(pool, () => now); app2 = makeApp(pool, () => now); });
 beforeEach(async () => { now = new Date('2026-10-15T12:00:00Z'); await resetData(pool); });
-afterAll(async () => { await app.close(); await pool.end(); });
+afterAll(async () => { await app.close(); await app2.close(); await pool.end(); });
 
 /** An account with the given plan, plus a client bound to its key. */
 async function setup(monthly: number | null, perRequest: number | null) {
@@ -215,11 +216,19 @@ describe('input and isolation', () => {
   });
 });
 
-describe('concurrency', () => {
+/** Alternates requests between two service instances so the in-process gate cannot be what keeps us correct. */
+const twoInstances = (key: string) => {
+  const clients = [client(app, key), client(app2, key)];
+  let i = 0;
+  return { post: (url: string, body?: unknown) => clients[i++ % 2]!.post(url, body), get: (url: string) => clients[0]!.get(url), put: clients[0]!.put, patch: (url: string, body: unknown) => clients[1]!.patch(url, body) };
+};
+
+describe('concurrency (two service instances, one database)', () => {
   it('200 parallel requests against a 100-unit user allowance: exactly 100 accepted', async () => {
-    const { c } = await setup(null, null);
+    const { c, root } = await setup(null, null);
     await newUser(c, 'alice', await newPlan(c, 'user', 'p', 100, null));
-    const results = await Promise.all(Array.from({ length: 200 }, () => consume(c, 'alice', 1)));
+    const racers = twoInstances(root.key);
+    const results = await Promise.all(Array.from({ length: 200 }, () => consume(racers, 'alice', 1)));
     expect(results.filter((r) => r.accepted)).toHaveLength(100);
     expect(results.filter((r) => !r.accepted).every((r) => r.rule === 'monthly_allowance' && r.level === 'user')).toBe(true);
     expect((await pool.query('SELECT units FROM user_usage')).rows[0].units).toBe(100);
@@ -227,19 +236,21 @@ describe('concurrency', () => {
   });
 
   it('many users racing for a shared account allowance never exceed it', async () => {
-    const { c } = await setup(120, null);
+    const { c, root } = await setup(120, null);
     const plan = await newPlan(c, 'user', 'p', null, null);
     for (let i = 0; i < 10; i++) await newUser(c, `u${i}`, plan);
-    const results = await Promise.all(Array.from({ length: 300 }, (_, i) => consume(c, `u${i % 10}`, 2)));
+    const racers = twoInstances(root.key);
+    const results = await Promise.all(Array.from({ length: 300 }, (_, i) => consume(racers, `u${i % 10}`, 2)));
     expect(results.filter((r) => r.accepted)).toHaveLength(60); // 60 x 2 units = 120 exactly
     expect((await pool.query('SELECT units FROM account_usage')).rows[0].units).toBe(120);
     expect(await brokenInvariants(pool)).toEqual([]);
   });
 
   it('20 simultaneous duplicates of one requestId produce one decision and count once', async () => {
-    const { c } = await setup(null, null);
+    const { c, root } = await setup(null, null);
     await newUser(c, 'alice', await newPlan(c, 'user', 'p', 100, null));
-    const results = await Promise.all(Array.from({ length: 20 }, () => consume(c, 'alice', 7, 'dup')));
+    const racers = twoInstances(root.key);
+    const results = await Promise.all(Array.from({ length: 20 }, () => consume(racers, 'alice', 7, 'dup')));
     expect(results.filter((r) => !r.replayed)).toHaveLength(1);
     expect(results.every((r) => r.accepted)).toBe(true);
     expect((await pool.query('SELECT units FROM user_usage')).rows[0].units).toBe(7);
@@ -247,10 +258,11 @@ describe('concurrency', () => {
   });
 
   it('plan edits during a burst never break the counters', async () => {
-    const { c } = await setup(null, null);
+    const { c, root } = await setup(null, null);
     const plan = await newPlan(c, 'user', 'p', 50, null);
     for (const u of ['a', 'b', 'c']) await newUser(c, u, plan);
-    const burst = Array.from({ length: 150 }, (_, i) => consume(c, 'abc'[i % 3]!, 1));
+    const racers = twoInstances(root.key);
+    const burst = Array.from({ length: 150 }, (_, i) => consume(racers, 'abc'[i % 3]!, 1));
     const edits = [30, 80, 10, 60, 200].map((m) => c.patch(`/plans/${plan}`, { monthlyAllowance: m }));
     await Promise.all([...burst, ...edits]);
     expect(await brokenInvariants(pool)).toEqual([]);

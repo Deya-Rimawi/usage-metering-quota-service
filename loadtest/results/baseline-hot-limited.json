@@ -1,0 +1,98 @@
+{
+  "label": "baseline-hot-limited",
+  "duration": 15,
+  "connections": 64,
+  "runs": 3,
+  "when": "2026-10-16T14:53:03.835Z",
+  "summary": [
+    {
+      "scenario": "hot-limited",
+      "runs": [
+        {
+          "scenario": "hot-limited",
+          "rps": 208,
+          "p50": 298,
+          "p97_5": 380,
+          "p99": 410,
+          "max": 508,
+          "total": 3124,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 1000,
+          "rejected": 2124,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 3139,
+          "waits": {
+            "Lock:transactionid": 1.02,
+            "Lock:tuple": 17.89,
+            "active": 0.42,
+            "Client:ClientRead": 0.11,
+            "IO:WALSync": 0.48,
+            "idle in transaction": 0.04
+          }
+        },
+        {
+          "scenario": "hot-limited",
+          "rps": 214,
+          "p50": 294,
+          "p97_5": 365,
+          "p99": 397,
+          "max": 467,
+          "total": 3210,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 1000,
+          "rejected": 2210,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 3224,
+          "waits": {
+            "IO:WALSync": 0.44,
+            "Lock:transactionid": 1,
+            "Lock:tuple": 17.87,
+            "active": 0.48,
+            "Client:ClientRead": 0.11,
+            "idle in transaction": 0.04
+          }
+        },
+        {
+          "scenario": "hot-limited",
+          "rps": 210,
+          "p50": 294,
+          "p97_5": 433,
+          "p99": 487,
+          "max": 579,
+          "total": 3151,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 1000,
+          "rejected": 2151,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 3164,
+          "waits": {
+            "Client:ClientRead": 0.15,
+            "Lock:transactionid": 1,
+            "Lock:tuple": 17.88,
+            "active": 0.52,
+            "IO:WALSync": 0.42,
+            "idle in transaction": 0.03,
+            "Timeout:VacuumDelay": 0.05
+          }
+        }
+      ],
+      "rps": 210,
+      "p50": 294,
+      "p99": 410,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

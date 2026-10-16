@@ -1,0 +1,102 @@
+{
+  "label": "sweep-c4-noisy-neighbor",
+  "duration": 10,
+  "connections": 64,
+  "runs": 3,
+  "when": "2026-10-16T15:21:07.556Z",
+  "summary": [
+    {
+      "scenario": "noisy-neighbor",
+      "runs": [
+        {
+          "scenario": "noisy-neighbor",
+          "rps": 1103,
+          "p50": 12,
+          "p97_5": 30,
+          "p99": 37,
+          "max": 104,
+          "total": 11030,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 11030,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "backgroundRps": 117,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 12257,
+          "waits": {
+            "Client:ClientRead": 3.23,
+            "IO:WALSync": 0.93,
+            "LWLock:WALWrite": 4.12,
+            "active": 0.85,
+            "idle in transaction": 0.21,
+            "IO:WALWrite": 0.02,
+            "IO:DataFileRead": 0.01
+          }
+        },
+        {
+          "scenario": "noisy-neighbor",
+          "rps": 1015,
+          "p50": 13,
+          "p97_5": 35,
+          "p99": 42,
+          "max": 104,
+          "total": 11166,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 11166,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "backgroundRps": 107,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 12301,
+          "waits": {
+            "Client:ClientRead": 3.11,
+            "IO:DataFileRead": 0.01,
+            "IO:WALSync": 0.94,
+            "LWLock:WALWrite": 3.83,
+            "active": 1.01,
+            "idle in transaction": 0.22,
+            "IO:DataFileExtend": 0.01,
+            "IO:WALWrite": 0.01
+          }
+        },
+        {
+          "scenario": "noisy-neighbor",
+          "rps": 1089,
+          "p50": 12,
+          "p97_5": 30,
+          "p99": 35,
+          "max": 78,
+          "total": 10892,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 10892,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "backgroundRps": 115,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 12108,
+          "waits": {
+            "Client:ClientRead": 3.23,
+            "IO:WALSync": 0.99,
+            "LWLock:WALWrite": 3.93,
+            "active": 0.78,
+            "idle in transaction": 0.25
+          }
+        }
+      ],
+      "rps": 1089,
+      "p50": 12,
+      "p99": 37,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

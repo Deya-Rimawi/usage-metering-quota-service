@@ -7,6 +7,7 @@ import type { Config } from '../config';
 import { apiKeyAuth } from './auth';
 import { registerErrorHandling } from './errors';
 import type { Clock } from '../domain/period';
+import { createGate } from '../services/accountGate';
 import { accountRoutes, adminRoutes } from './routes/accounts';
 import { consumeRoutes } from './routes/consume';
 import { planRoutes } from './routes/plans';
@@ -25,6 +26,7 @@ export function buildApp({ pool, config, clock = () => new Date() }: AppDeps): F
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   registerErrorHandling(app);
+  const gate = createGate(config.ACCOUNT_CONCURRENCY);
 
   // OpenAPI is generated from the same zod schemas that validate requests, so the docs cannot drift.
   app.register(swagger, {
@@ -68,7 +70,7 @@ export function buildApp({ pool, config, clock = () => new Date() }: AppDeps): F
     accountRoutes(scope, pool);
     userRoutes(scope, pool);
     planRoutes(scope, pool);
-    consumeRoutes(scope, pool, clock);
+    consumeRoutes(scope, pool, clock, gate);
     usageRoutes(scope, pool, clock);
   });
 

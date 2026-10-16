@@ -2,7 +2,7 @@
 
 Backend service that tracks usage and decides whether a user may consume units, enforcing an account plan and a user plan together.
 
-> **Status:** Day 5 of 7: API and demo client done. Load tests and final polish come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
+> **Status:** Day 6 of 7: API, demo client, load tests and optimization done. Final review and polish come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Quick start
 ```bash
@@ -60,12 +60,19 @@ Response (HTTP 200 whether accepted or not):
 ```
 Errors always look like `{"error":{"code":"...","message":"..."}}`.
 
+## Performance at a glance
+One account is decided at about **250-300 requests/s** (exact totals require serializing it); many accounts reach about **1,600 requests/s** on a laptop. Correctness invariants held across 1.2 million load-test requests. Details, method and how to reproduce: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+```bash
+docker compose --profile tools run --rm --build loadtest all --label mine   # ~6 minutes
+```
+
 ## Docs
 - [`docs/PLAN.md`](docs/PLAN.md): architecture, schedule, and the documentation roadmap
 - [`docs/DEMO.md`](docs/DEMO.md): the example client and the guided scenario
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): layers, diagrams, request lifecycle
 - [`docs/API.md`](docs/API.md): endpoint reference, error catalogue ([`openapi.json`](docs/openapi.json))
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md): ER diagram, constraints, invariants
+- [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md): load-test method, results, bottleneck analysis, what helped and what did not
 - [`docs/CONCURRENCY.md`](docs/CONCURRENCY.md): how consume stays correct under parallel requests
 - [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md): every product decision the brief left open
 - [`docs/decisions/`](docs/decisions): architecture decision records

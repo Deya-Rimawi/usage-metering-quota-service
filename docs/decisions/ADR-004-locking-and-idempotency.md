@@ -1,6 +1,6 @@
 # ADR-004: Row locks in a fixed order, and an idempotency claim first
 
-**Status:** accepted (v1; a measured optimization may follow, see PERFORMANCE.md)
+**Status:** superseded by [ADR-005](ADR-005-lock-first-consume.md) (kept as the record of the first design and the baseline that was measured)
 
 ## Decision
 `consume` runs in one READ COMMITTED transaction: claim `(account_id, request_id)` with `INSERT ... ON CONFLICT DO NOTHING`, then `SELECT ... FOR UPDATE` the user counter and then the account counter, read the plans, decide, update, commit.

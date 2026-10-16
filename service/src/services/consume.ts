@@ -31,8 +31,9 @@ export interface ConsumeResult {
   replayed: boolean;
 }
 
-const report = (planId: string, planName: string, limits: Limits, used: number): SideReport => ({
-  planId, planName, ...limits, used, remaining: remainingUnits({ limits, used }),
+export const report = (planId: string, planName: string, limits: Limits, used: number): SideReport => ({
+  planId, planName, monthlyAllowance: limits.monthlyAllowance, maxPerRequest: limits.maxPerRequest,
+  used, remaining: remainingUnits({ limits, used }),
 });
 
 /**

@@ -1,0 +1,2082 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Usage Metering & Quota Service",
+    "version": "1.0.0",
+    "description": "Tracks usage and decides whether users may consume units under an account plan and a user plan. Errors always look like `{ \"error\": { \"code\", \"message\", \"details?\" } }`."
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "adminToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Admin-Token"
+      }
+    },
+    "schemas": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Liveness",
+        "tags": [
+          "Health"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "summary": "Readiness (database reachable)",
+        "tags": [
+          "Health"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/accounts": {
+      "post": {
+        "summary": "Create an account and issue its API key (admin only)",
+        "tags": [
+          "Accounts"
+        ],
+        "description": "Requires `X-Admin-Token`. The `apiKey` in the response is shown once and never stored in plain form.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "planId": {
+                    "default": "starter",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminToken": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "account": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "plan": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "account",
+                                "user"
+                              ]
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "monthlyAllowance": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000000000000
+                            },
+                            "maxPerRequest": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000000000
+                            },
+                            "predefined": {
+                              "type": "boolean"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "kind",
+                            "name",
+                            "monthlyAllowance",
+                            "maxPerRequest",
+                            "predefined",
+                            "createdAt",
+                            "updatedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "plan",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "account",
+                    "apiKey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account": {
+      "get": {
+        "summary": "The calling account, its plan and limits",
+        "tags": [
+          "Accounts"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "account",
+                            "user"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000
+                        },
+                        "predefined": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "name",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "predefined",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "plan",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/plan": {
+      "put": {
+        "summary": "Change the account's plan (usage is preserved)",
+        "tags": [
+          "Accounts"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "planId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "planId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "account",
+                            "user"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000
+                        },
+                        "predefined": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "name",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "predefined",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "plan",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/api-key/rotate": {
+      "post": {
+        "summary": "Issue a new API key; the old one stops working immediately",
+        "tags": [
+          "Accounts"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiKey": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "apiKey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "summary": "Register a user under the account",
+        "tags": [
+          "Users"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._:@-]{1,200}$"
+                  },
+                  "planId": {
+                    "default": "basic",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "userId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "account",
+                            "user"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000
+                        },
+                        "predefined": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "name",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "predefined",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "plan",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List users (cursor-paginated)",
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "plan": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "user"
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "monthlyAllowance": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1000000000000
+                              },
+                              "maxPerRequest": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1000000000
+                              },
+                              "predefined": {
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "name",
+                              "monthlyAllowance",
+                              "maxPerRequest",
+                              "predefined",
+                              "createdAt",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "plan",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextCursor": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "users",
+                    "nextCursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "get": {
+        "summary": "Get a user and their plan",
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:@-]{1,200}$"
+            },
+            "in": "path",
+            "name": "userId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "account",
+                            "user"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000
+                        },
+                        "predefined": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "name",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "predefined",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "plan",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}/plan": {
+      "put": {
+        "summary": "Change a user's plan (usage is preserved)",
+        "tags": [
+          "Users"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "planId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "planId"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:@-]{1,200}$"
+            },
+            "in": "path",
+            "name": "userId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "account",
+                            "user"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000
+                        },
+                        "predefined": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "name",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "predefined",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "plan",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans": {
+      "get": {
+        "summary": "Predefined plans plus your custom plans",
+        "tags": [
+          "Plans"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plans": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "account",
+                              "user"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "monthlyAllowance": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000000000
+                          },
+                          "maxPerRequest": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000000
+                          },
+                          "predefined": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "name",
+                          "monthlyAllowance",
+                          "maxPerRequest",
+                          "predefined",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "plans"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a custom plan",
+        "tags": [
+          "Plans"
+        ],
+        "description": "`null` for a limit means unlimited. Any number of users may share one plan; each keeps separate usage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "account",
+                      "user"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "monthlyAllowance": {
+                    "default": null,
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000000
+                  },
+                  "maxPerRequest": {
+                    "default": null,
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "account",
+                        "user"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "monthlyAllowance": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000000
+                    },
+                    "maxPerRequest": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000
+                    },
+                    "predefined": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "name",
+                    "monthlyAllowance",
+                    "maxPerRequest",
+                    "predefined",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plans/{planId}": {
+      "get": {
+        "summary": "Get a plan",
+        "tags": [
+          "Plans"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "account",
+                        "user"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "monthlyAllowance": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000000
+                    },
+                    "maxPerRequest": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000
+                    },
+                    "predefined": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "name",
+                    "monthlyAllowance",
+                    "maxPerRequest",
+                    "predefined",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Edit a custom plan (applies to the next request)",
+        "tags": [
+          "Plans"
+        ],
+        "description": "Partial update. Omitted fields are unchanged, `null` means unlimited. Predefined plans return 403.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "monthlyAllowance": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000000
+                  },
+                  "maxPerRequest": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "account",
+                        "user"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "monthlyAllowance": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000000
+                    },
+                    "maxPerRequest": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000
+                    },
+                    "predefined": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "name",
+                    "monthlyAllowance",
+                    "maxPerRequest",
+                    "predefined",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consume": {
+      "post": {
+        "summary": "Consume units for a user if every account and user rule allows it",
+        "tags": [
+          "Consume"
+        ],
+        "description": "Always HTTP 200 for a decision: check `accepted`. A rejection consumes nothing. Retrying the same `requestId` returns the stored decision with `replayed: true`; the same id with a different user or amount is a 409.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._:@-]{1,200}$"
+                  },
+                  "units": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000
+                  },
+                  "requestId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "userId",
+                  "units",
+                  "requestId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "units": {
+                      "type": "number"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "accepted": {
+                      "type": "boolean"
+                    },
+                    "rule": {
+                      "nullable": true,
+                      "type": "string",
+                      "enum": [
+                        "max_per_request",
+                        "monthly_allowance"
+                      ]
+                    },
+                    "level": {
+                      "nullable": true,
+                      "type": "string",
+                      "enum": [
+                        "account",
+                        "user"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "violations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "level": {
+                            "type": "string",
+                            "enum": [
+                              "account",
+                              "user"
+                            ]
+                          },
+                          "rule": {
+                            "type": "string",
+                            "enum": [
+                              "max_per_request",
+                              "monthly_allowance"
+                            ]
+                          },
+                          "limit": {
+                            "type": "number"
+                          },
+                          "requested": {
+                            "type": "number"
+                          },
+                          "remaining": {
+                            "nullable": true,
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "level",
+                          "rule",
+                          "limit",
+                          "requested",
+                          "remaining"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "account": {
+                      "type": "object",
+                      "properties": {
+                        "planId": {
+                          "type": "string"
+                        },
+                        "planName": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "used": {
+                          "type": "number"
+                        },
+                        "remaining": {
+                          "nullable": true,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "planId",
+                        "planName",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "used",
+                        "remaining"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "planId": {
+                          "type": "string"
+                        },
+                        "planName": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "used": {
+                          "type": "number"
+                        },
+                        "remaining": {
+                          "nullable": true,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "planId",
+                        "planName",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "used",
+                        "remaining"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "requestId",
+                    "userId",
+                    "units",
+                    "period",
+                    "accepted",
+                    "rule",
+                    "level",
+                    "message",
+                    "violations",
+                    "account",
+                    "user",
+                    "replayed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usage": {
+      "get": {
+        "summary": "Account usage for a UTC month, with every user",
+        "tags": [
+          "Usage"
+        ],
+        "description": "Defaults to the current month. `remaining` is only reported for the current month (null for past months).",
+        "parameters": [
+          {
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "period",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "period": {
+                      "type": "string"
+                    },
+                    "current": {
+                      "type": "boolean"
+                    },
+                    "account": {
+                      "type": "object",
+                      "properties": {
+                        "planId": {
+                          "type": "string"
+                        },
+                        "planName": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "used": {
+                          "type": "number"
+                        },
+                        "remaining": {
+                          "nullable": true,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "planId",
+                        "planName",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "used",
+                        "remaining"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "planId": {
+                            "type": "string"
+                          },
+                          "planName": {
+                            "type": "string"
+                          },
+                          "monthlyAllowance": {
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "maxPerRequest": {
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "used": {
+                            "type": "number"
+                          },
+                          "remaining": {
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "planId",
+                          "planName",
+                          "monthlyAllowance",
+                          "maxPerRequest",
+                          "used",
+                          "remaining",
+                          "userId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextCursor": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "period",
+                    "current",
+                    "account",
+                    "users",
+                    "nextCursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}/usage": {
+      "get": {
+        "summary": "One user's usage for a UTC month, plus the account they draw from",
+        "tags": [
+          "Usage"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "period",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:@-]{1,200}$"
+            },
+            "in": "path",
+            "name": "userId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "current": {
+                      "type": "boolean"
+                    },
+                    "account": {
+                      "type": "object",
+                      "properties": {
+                        "planId": {
+                          "type": "string"
+                        },
+                        "planName": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "used": {
+                          "type": "number"
+                        },
+                        "remaining": {
+                          "nullable": true,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "planId",
+                        "planName",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "used",
+                        "remaining"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "planId": {
+                          "type": "string"
+                        },
+                        "planName": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "used": {
+                          "type": "number"
+                        },
+                        "remaining": {
+                          "nullable": true,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "planId",
+                        "planName",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "used",
+                        "remaining"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "period",
+                    "current",
+                    "account",
+                    "user"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}/limits": {
+      "get": {
+        "summary": "Plans and limits currently applied to a user and their account, with remaining units this month",
+        "tags": [
+          "Usage"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:@-]{1,200}$"
+            },
+            "in": "path",
+            "name": "userId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "current": {
+                      "type": "boolean"
+                    },
+                    "account": {
+                      "type": "object",
+                      "properties": {
+                        "planId": {
+                          "type": "string"
+                        },
+                        "planName": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "used": {
+                          "type": "number"
+                        },
+                        "remaining": {
+                          "nullable": true,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "planId",
+                        "planName",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "used",
+                        "remaining"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "planId": {
+                          "type": "string"
+                        },
+                        "planName": {
+                          "type": "string"
+                        },
+                        "monthlyAllowance": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "maxPerRequest": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "used": {
+                          "type": "number"
+                        },
+                        "remaining": {
+                          "nullable": true,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "planId",
+                        "planName",
+                        "monthlyAllowance",
+                        "maxPerRequest",
+                        "used",
+                        "remaining"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "period",
+                    "current",
+                    "account",
+                    "user"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests": {
+      "get": {
+        "summary": "Request history, newest first",
+        "tags": [
+          "History"
+        ],
+        "description": "Every decision, accepted or rejected, with the limits that applied when it was made. Cursor-paginated.",
+        "parameters": [
+          {
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:@-]{1,200}$"
+            },
+            "in": "query",
+            "name": "userId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "period",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "in": "query",
+            "name": "accepted",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "requestId": {
+                            "type": "string"
+                          },
+                          "userId": {
+                            "type": "string"
+                          },
+                          "units": {
+                            "type": "number"
+                          },
+                          "period": {
+                            "type": "string"
+                          },
+                          "accepted": {
+                            "type": "boolean"
+                          },
+                          "rule": {
+                            "nullable": true,
+                            "type": "string",
+                            "enum": [
+                              "max_per_request",
+                              "monthly_allowance"
+                            ]
+                          },
+                          "level": {
+                            "nullable": true,
+                            "type": "string",
+                            "enum": [
+                              "account",
+                              "user"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "violations": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "level": {
+                                  "type": "string",
+                                  "enum": [
+                                    "account",
+                                    "user"
+                                  ]
+                                },
+                                "rule": {
+                                  "type": "string",
+                                  "enum": [
+                                    "max_per_request",
+                                    "monthly_allowance"
+                                  ]
+                                },
+                                "limit": {
+                                  "type": "number"
+                                },
+                                "requested": {
+                                  "type": "number"
+                                },
+                                "remaining": {
+                                  "nullable": true,
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "level",
+                                "rule",
+                                "limit",
+                                "requested",
+                                "remaining"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "account": {
+                            "type": "object",
+                            "properties": {
+                              "planId": {
+                                "type": "string"
+                              },
+                              "planName": {
+                                "type": "string"
+                              },
+                              "monthlyAllowance": {
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "maxPerRequest": {
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "used": {
+                                "type": "number"
+                              },
+                              "remaining": {
+                                "nullable": true,
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "planId",
+                              "planName",
+                              "monthlyAllowance",
+                              "maxPerRequest",
+                              "used",
+                              "remaining"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "user": {
+                            "type": "object",
+                            "properties": {
+                              "planId": {
+                                "type": "string"
+                              },
+                              "planName": {
+                                "type": "string"
+                              },
+                              "monthlyAllowance": {
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "maxPerRequest": {
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "used": {
+                                "type": "number"
+                              },
+                              "remaining": {
+                                "nullable": true,
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "planId",
+                              "planName",
+                              "monthlyAllowance",
+                              "maxPerRequest",
+                              "used",
+                              "remaining"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "requestId",
+                          "userId",
+                          "units",
+                          "period",
+                          "accepted",
+                          "rule",
+                          "level",
+                          "message",
+                          "violations",
+                          "account",
+                          "user",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextCursor": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "requests",
+                    "nextCursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

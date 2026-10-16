@@ -17,4 +17,12 @@ The brief leaves some behaviour open. Each choice below is deliberate, applied c
 | 11 | Key rotation | `POST /account/api-key/rotate` returns a new key and invalidates the old one immediately. | A lost or leaked key needs a recovery path. Small addition, high value. |
 | 12 | Key storage | Only the SHA-256 hash is stored. The key is shown once. | A database leak does not leak working keys. |
 
-Decisions about consumption (rule order, retries, rejected requests, month rollover) are added to this table when that feature lands.
+| 13 | Rejection is not an error | `POST /consume` returns HTTP 200 with `accepted:false`, `rule`, `level`, a `message` and the full `violations` list. 4xx is only for bad input, bad key, unknown user, or a reused requestId. | "Not allowed" is the service doing its job. Callers branch on `accepted`, and monitoring does not confuse quota rejections with failures. |
+| 14 | Which rule is reported | Fixed order: user per-request, account per-request, user monthly, account monthly. The first broken one is `rule`/`level`; every broken one is in `violations`. | Predictable; request-local checks first, narrowest scope first. |
+| 15 | Rejected requests | Logged in history, count toward no usage, and own their `requestId`. | Callers can audit denials; counters stay exact. |
+| 16 | Retries | `requestId` is unique per account. A retry returns the stored decision with `replayed:true`, even if plans changed since. Same id with a different user or amount gives 409 `idempotency_conflict`. To get a new decision, send a new `requestId`. | Safe retries: a timeout can never double-charge or flip an answer. |
+| 17 | Replayed balances | A replay shows the balances as of the original decision, not current ones. | The response is identical; current balances come from the usage endpoints. |
+| 18 | Month boundary | The UTC month is taken when the request is processed. A request that started at 23:59:59.9 and is processed at 00:00:00.1 counts in the new month. | Matches "new usage belongs to the UTC month when it is processed". |
+| 19 | Reduced allowance | `remaining = max(0, allowance - used)`; consumption is rejected at that level until allowance exceeds usage again. Usage is never rewritten. | Brief. |
+| 20 | Unknown user on consume | 404; nothing is auto-created and nothing is logged. | Users are registered explicitly, so typos fail loudly. |
+| 21 | Plan edits mid-request | A request uses the plans read once after it takes its locks. | Never a mix of old and new limits; see CONCURRENCY.md. |

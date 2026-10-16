@@ -105,6 +105,7 @@ The brief leaves some behavior open; these are the main choices (all 33, with re
 - **`remaining` and the daily numbers are reported for the current month only** (daily ones describe *today*, UTC); for past months `used` is the record (a closed month has nothing left to consume).
 - **The daily allowance is the extra rule** (the brief makes extra rules optional); its interaction with account and user plans is explained in [ADR-007](docs/decisions/ADR-007-daily-allowance.md).
 - **Limits are integers** (monthly up to 1e12, per request and units up to 1e9) so every value is exact; `null` means unlimited.
+- **Exactly two levels, as in the brief:** the calling application (account) and its users. A `userId` is any string, so the application decides what a user is (a person, a company, a team); a third level means one account per customer organization ([`docs/PROVISIONING.md`](docs/PROVISIONING.md)).
 - **Plans cannot be deleted** and users cannot be removed or moved (out of scope; deleting would orphan history).
 
 ## Main design decisions

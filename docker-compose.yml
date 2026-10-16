@@ -22,8 +22,36 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ready || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
     ports:
       - "3000:3000"
+
+  client:
+    build: ./client
+    environment:
+      SERVICE_URL: http://service:3000
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+    depends_on:
+      service:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  # End-to-end check of the demo scenario against the running stack:  docker compose run --rm e2e
+  e2e:
+    build: ./client
+    profiles: ["tools"]
+    command: ["node", "--test"]
+    environment:
+      SERVICE_URL: http://service:3000
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+    depends_on:
+      service:
+        condition: service_healthy
 
 volumes:
   pgdata:

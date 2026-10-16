@@ -1,8 +1,10 @@
+import type { QueryResultRow } from 'pg';
 import type { Db } from './db';
 
 export interface AccountRow { id: string; name: string; planId: string; externalId: string | null; createdAt: string }
 const COLS = 'id, name, plan_id, external_id, created_at';
-const map = (r: any): AccountRow => ({ id: r.id, name: r.name, planId: r.plan_id, externalId: r.external_id, createdAt: r.created_at.toISOString() });
+// Rows from pg are untyped: this mapper is the one place they are turned into typed objects.
+const map = (r: QueryResultRow): AccountRow => ({ id: r.id, name: r.name, planId: r.plan_id, externalId: r.external_id, createdAt: r.created_at.toISOString() });
 
 /**
  * Inserts an account. With an `externalId` this is race-safe get-or-create: if another request already created

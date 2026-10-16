@@ -1,6 +1,11 @@
+import type { Violation } from '../domain/rules';
 import type { Db } from './db';
+import type { StoredDecision } from './usage';
 
-export interface StoredRequest {
+/** One decision as stored in the request log, ready for the history endpoint. */
+export interface HistoryRow {
+  id: string;
+  requestId: string;
   uid: string;
   userId: string;
   units: number;
@@ -8,11 +13,11 @@ export interface StoredRequest {
   accepted: boolean;
   rejectedRule: string | null;
   rejectedLevel: string | null;
-  violations: any[] | null;
-  applied: any;
+  violations: Violation[] | null;
+  applied: StoredDecision['applied'];
+  createdAt: string;
+  createdAtRaw: string; // created_at::text, full microsecond precision, used as the pagination cursor
 }
-
-export interface HistoryRow extends StoredRequest { requestId: string; createdAt: string; createdAtRaw: string; id: string }
 
 /**
  * Newest first, keyset-paginated on (created_at, id): stable while new requests keep arriving

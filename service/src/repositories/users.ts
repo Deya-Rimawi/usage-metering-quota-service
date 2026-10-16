@@ -1,9 +1,11 @@
+import type { QueryResultRow } from 'pg';
 import type { Db } from './db';
 
 /** The API identifies a user by the caller's own id (`external_id`); the internal uuid never leaves the service. */
 export interface UserRow { uid: string; userId: string; planId: string; createdAt: string; createdAtRaw: string }
 const COLS = `id, external_id, plan_id, created_at, created_at::text AS created_at_raw`;
-const map = (r: any): UserRow => ({
+// Rows from pg are untyped: this mapper is the one place they are turned into typed objects.
+const map = (r: QueryResultRow): UserRow => ({
   uid: r.id, userId: r.external_id, planId: r.plan_id, createdAt: r.created_at.toISOString(), createdAtRaw: r.created_at_raw,
 });
 

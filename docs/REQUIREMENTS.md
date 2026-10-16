@@ -71,7 +71,7 @@ Every requirement in the brief, where it is implemented, and the evidence. Test 
 | Reliability | idempotent retries, row-lock concurrency tests across two instances, restart checks, error catalogue in [API.md](API.md) |
 | Performance | [PERFORMANCE.md](PERFORMANCE.md) |
 | Design and code quality | [ARCHITECTURE.md](ARCHITECTURE.md), [DATA_MODEL.md](DATA_MODEL.md), [decisions/](decisions/README.md) |
-| Local setup | README quick start, `docker-compose.yml`, `.devcontainer/` (GitHub Codespaces) |
+| Local setup | README quick start, `docker-compose.yml` |
 | Documentation and usability | README, [API.md](API.md), [DEMO.md](DEMO.md), [TESTING.md](TESTING.md) |
 | Understanding and judgment | [ASSUMPTIONS.md](ASSUMPTIONS.md), [LIMITATIONS.md](LIMITATIONS.md), [WALKTHROUGH.md](WALKTHROUGH.md) |
 

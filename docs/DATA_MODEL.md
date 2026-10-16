@@ -15,7 +15,7 @@ erDiagram
   ACCOUNTS ||--o{ REQUESTS : makes
   USERS ||--o{ REQUESTS : "on behalf of"
   PLANS { text id PK  uuid account_id "NULL = predefined"  text kind  bigint monthly_allowance "NULL = unlimited"  bigint daily_allowance "NULL = unlimited"  bigint max_per_request "NULL = unlimited" }
-  ACCOUNTS { uuid id PK  text api_key_hash UK  text plan_id FK }
+  ACCOUNTS { uuid id PK  text api_key_hash UK  text plan_id FK  text external_id UK  text source }
   USERS { uuid id PK  uuid account_id FK  text external_id "caller's userId"  text plan_id FK }
   ACCOUNT_USAGE { uuid account_id PK  date period PK  bigint units }
   USER_USAGE { uuid user_id PK  date period PK  bigint units }
@@ -28,7 +28,7 @@ erDiagram
 | Table | Role |
 |---|---|
 | `plans` | Rule sets (`monthly_allowance`, `daily_allowance`, `max_per_request`). `account_id IS NULL` = predefined (read-only). `kind` is `account` or `user`. A `NULL` limit = unlimited. Plan edits are plain `UPDATE`s, so changes need no redeploy. |
-| `accounts` | A calling application. Stores only `sha256(api_key)`. |
+| `accounts` | A calling application. Stores only `sha256(api_key)`. `external_id` is the caller's own customer id (optional, unique when set): it makes provisioning idempotent. `source` records how the account came to exist (`admin` or `self_service`) so self-service accounts can be counted and capped. |
 | `users` | A user of an account. `(account_id, external_id)` is unique; `external_id` is the caller's own `userId`. |
 | `account_usage` / `user_usage` | Running totals, one row per owner per UTC month (`period` = first day of the month). **Not keyed by plan**, so a plan switch cannot reset usage. |
 | `account_daily_usage` / `user_daily_usage` | The same for the **daily allowance** (the extra rule, [ADR-007](decisions/ADR-007-daily-allowance.md)): one row per owner per UTC day (`day`). Also not keyed by plan. |
@@ -45,6 +45,8 @@ erDiagram
 | `CHECK` on `requests` outcome columns | An accepted row has no rejection reason; a rejected row always has one. |
 | `UNIQUE INDEX plans (owner, lower(name))` | No duplicate plan names per account (predefined count as one shared owner). |
 | `UNIQUE (api_key_hash)` | Indexed O(1) key lookup, and no two accounts share a key. |
+| partial `UNIQUE (external_id) WHERE external_id IS NOT NULL` | One account per caller-supplied customer id, so a retried provisioning call cannot create a duplicate (race-safe via `ON CONFLICT`). |
+| `CHECK (source IN ('admin', 'self_service'))` | Only the two known origins. |
 
 ## Indexes
 `requests (account_id, created_at DESC, id DESC)` serves the account's history and cursor pagination; `requests (user_id, created_at DESC, id DESC)` serves per-user history; the usage tables' primary keys serve every counter lookup and lock.

@@ -33,6 +33,9 @@ The account's small allowance is deliberate: it is easy to hit the *shared* limi
    8. Retrying an old request id returns the stored answer (`replayed`) and counts nothing twice
 2. Or do it by hand: pick a user, enter pages, **Process**. **Retry last request** resends the same `requestId`. Use the "Change the rules" panel to switch a user's plan or edit the account limits (monthly, daily, per request) and process again. The balances panel shows the monthly numbers and, when a daily limit is set, today's.
 
+## Who holds the admin token in the demo
+The demo client's **server** plays the application's provisioning backend: at startup it uses the admin token (from `ADMIN_TOKEN`) to create the demo account, then keeps the returned API key to itself. The browser page never receives either secret. This is the pattern described in [PROVISIONING.md](PROVISIONING.md); in a real deployment the admin token would live in a secrets manager, not in a default.
+
 ## Why this shows "no client code change"
 The only metering call in the business path is `consume()` ([`client/metering-client.ts`](../client/metering-client.ts)). Changing limits goes through *configuration* endpoints; `consume()` and the code around it are identical before and after, yet the same request gets a different answer.
 

@@ -2,12 +2,20 @@
 // A throughput number only counts if these invariants hold (see docs/CONCURRENCY.md).
 import pg from 'pg';
 
-export async function verify(databaseUrl, accountIds, { expectAccountUsed } = {}) {
+export interface Verification {
+  ok: boolean;
+  problems: string[];
+  loggedRequests: number;
+  loggedAccepted: number;
+  unitsUsed: number;
+}
+
+export async function verify(databaseUrl: string, accountIds: string[], { expectAccountUsed }: { expectAccountUsed?: number } = {}): Promise<Verification> {
   pg.types.setTypeParser(20, Number);
   const db = new pg.Pool({ connectionString: databaseUrl, max: 2 });
   try {
-    const q = async (sql) => (await db.query(sql, [accountIds])).rows;
-    const problems = [];
+    const q = async (sql: string) => (await db.query(sql, [accountIds])).rows;
+    const problems: string[] = [];
 
     const userMismatch = await q(`
       SELECT uu.user_id FROM user_usage uu JOIN users u ON u.id = uu.user_id
@@ -43,8 +51,8 @@ export async function verify(databaseUrl, accountIds, { expectAccountUsed } = {}
     const pending = await q(`SELECT 1 FROM requests WHERE account_id = ANY($1) AND accepted IS NULL`);
     if (pending.length) problems.push(`${pending.length} requests left without a decision`);
 
-    const [{ total, accepted }] = await q(`SELECT count(*)::int total, count(*) FILTER (WHERE accepted)::int accepted FROM requests WHERE account_id = ANY($1)`);
-    const [{ used }] = await q(`SELECT COALESCE(sum(units), 0) used FROM account_usage WHERE account_id = ANY($1)`);
+    const [{ total, accepted } = { total: 0, accepted: 0 }] = await q(`SELECT count(*)::int total, count(*) FILTER (WHERE accepted)::int accepted FROM requests WHERE account_id = ANY($1)`);
+    const [{ used } = { used: 0 }] = await q(`SELECT COALESCE(sum(units), 0) used FROM account_usage WHERE account_id = ANY($1)`);
     if (expectAccountUsed !== undefined && Number(used) !== expectAccountUsed) problems.push(`expected exactly ${expectAccountUsed} units used, found ${used}`);
     return { ok: problems.length === 0, problems, loggedRequests: total, loggedAccepted: accepted, unitsUsed: Number(used) };
   } finally {

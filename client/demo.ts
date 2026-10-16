@@ -1,10 +1,10 @@
 // Demo data and the scripted scenario. The scenario uses ONLY Metering.consume for business actions;
 // plan changes are configuration calls, so the "client code" is identical before and after them.
-import { createAccount } from './metering-client.mjs';
+import { createAccount, type Decision, type Level, type Metering, type Rule } from './metering-client.ts';
 
 export const DEMO_ACCOUNT_LIMITS = { monthlyAllowance: 100, maxPerRequest: 40 };
 
-export async function waitForService(baseUrl, tries = 60) {
+export async function waitForService(baseUrl: string, tries = 60): Promise<void> {
   for (let i = 0; i < tries; i++) {
     try {
       if ((await fetch(baseUrl + '/ready')).ok) return;
@@ -20,7 +20,12 @@ export async function waitForService(baseUrl, tries = 60) {
  *   alice: Basic   (500/month, 20 per request)                (predefined)
  *   bob:   Premium (5,000/month, 200 per request)             (predefined)
  */
-export async function setupDemo(baseUrl, adminToken) {
+export interface Demo {
+  metering: Metering;
+  accountPlanId: string;
+}
+
+export async function setupDemo(baseUrl: string, adminToken: string): Promise<Demo> {
   const metering = await createAccount(baseUrl, adminToken, `Demo ${new Date().toISOString()}`);
   const accountPlan = await metering.createPlan({ kind: 'account', name: 'Demo Account', ...DEMO_ACCOUNT_LIMITS });
   await metering.setAccountPlan(accountPlan.id);
@@ -30,16 +35,27 @@ export async function setupDemo(baseUrl, adminToken) {
 }
 
 /** Runs the story from the brief. Each step says what it expects, so the page (and the e2e test) can check it. */
-export async function runScenario({ metering, accountPlanId }) {
-  const steps = [];
-  const act = async (title, userId, units, expect, requestId) => {
+export interface Expectation {
+  accepted: boolean;
+  rule?: Rule;
+  level?: Level;
+  replayed?: boolean;
+}
+
+export type Step =
+  | { kind: 'consume'; title: string; userId: string; units: number; expect: Expectation; decision: Decision; ok: boolean }
+  | { kind: 'config'; title: string; ok: boolean };
+
+export async function runScenario({ metering, accountPlanId }: Demo): Promise<Step[]> {
+  const steps: Step[] = [];
+  const act = async (title: string, userId: string, units: number, expect: Expectation, requestId?: string) => {
     const decision = await metering.consume(userId, units, requestId);
     const ok = decision.accepted === expect.accepted && (decision.rule ?? null) === (expect.rule ?? null) &&
       (decision.level ?? null) === (expect.level ?? null) && (expect.replayed === undefined || decision.replayed === expect.replayed);
     steps.push({ kind: 'consume', title, userId, units, expect, decision, ok });
     return decision;
   };
-  const config = async (title, fn) => { await fn(); steps.push({ kind: 'config', title, ok: true }); };
+  const config = async (title: string, fn: () => Promise<unknown>) => { await fn(); steps.push({ kind: 'config', title, ok: true }); };
 
   const first = await act('alice processes a 10-unit document', 'alice', 10, { accepted: true });
   const tooBig = await act('alice tries 25 units: her Basic plan allows 20 per request', 'alice', 25, { accepted: false, rule: 'max_per_request', level: 'user' });

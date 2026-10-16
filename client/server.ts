@@ -1,19 +1,19 @@
 // Demo "document processing" backend. Browsers talk to this server; this server talks to the metering
 // service with the account API key, which the browser never sees.
-import { createServer } from 'node:http';
+import { createServer, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { MeteringError } from './metering-client.mjs';
-import { runScenario, setupDemo, waitForService } from './demo.mjs';
+import { MeteringError } from './metering-client.ts';
+import { runScenario, setupDemo, waitForService, type Demo } from './demo.ts';
 
 const SERVICE_URL = process.env.SERVICE_URL ?? 'http://localhost:3000';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? 'dev-admin-token';
 const PORT = Number(process.env.PORT ?? 8080);
 
-let demo; // { metering, accountPlanId }
+let demo!: Demo; // set by reset() before the server accepts traffic
 
 // reset and scenario replace the whole demo account: run them one at a time so two clicks cannot interleave.
-let exclusiveChain = Promise.resolve();
-const exclusive = (fn) => { const run = exclusiveChain.then(fn); exclusiveChain = run.catch(() => {}); return run; };
+let exclusiveChain: Promise<unknown> = Promise.resolve();
+const exclusive = <T>(fn: () => Promise<T>): Promise<T> => { const run = exclusiveChain.then(fn); exclusiveChain = run.catch(() => {}); return run; };
 const reset = async () => { demo = await setupDemo(SERVICE_URL, ADMIN_TOKEN); };
 
 async function state() {
@@ -22,19 +22,20 @@ async function state() {
   return { usage, plans: plans.plans, history: history.requests, accountPlanId: demo.accountPlanId };
 }
 
-const routes = {
+type Body = Record<string, unknown>;
+const routes: Record<string, (body: Body) => Promise<unknown>> = {
   'GET /api/state': () => state(),
   'POST /api/reset': () => exclusive(async () => { await reset(); return state(); }),
   'POST /api/scenario': () => exclusive(async () => { await reset(); const steps = await runScenario(demo); return { steps, ...(await state()) }; }),
   // The business action (simulated). The ONLY metering call it makes is consume().
   'POST /api/process': async ({ userId, units, requestId }) => {
-    const decision = await demo.metering.consume(userId, Number(units), requestId || undefined);
+    const decision = await demo.metering.consume(String(userId), Number(units), requestId ? String(requestId) : undefined);
     const result = decision.accepted ? `Processed a ${units}-page document for ${userId}` : null;
     return { decision, result };
   },
-  'POST /api/user-plan': async ({ userId, planId }) => { await demo.metering.setUserPlan(userId, planId); return state(); },
+  'POST /api/user-plan': async ({ userId, planId }) => { await demo.metering.setUserPlan(String(userId), String(planId)); return state(); },
   'POST /api/account-limits': async ({ monthlyAllowance, maxPerRequest }) => {
-    const toLimit = (v) => (v === '' || v === null ? null : Number(v));
+    const toLimit = (v: unknown) => (v === '' || v === null ? null : Number(v));
     await demo.metering.editPlan(demo.accountPlanId, { monthlyAllowance: toLimit(monthlyAllowance), maxPerRequest: toLimit(maxPerRequest) });
     return state();
   },
@@ -42,10 +43,10 @@ const routes = {
 
 const MAX_BODY = 10_000; // bytes: the biggest legitimate request here is a few hundred
 
-const json = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
+const json = (res: ServerResponse, status: number, body: unknown) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
 
 createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://x');
+  const url = new URL(req.url ?? '/', 'http://x');
   try {
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -60,7 +61,7 @@ createServer(async (req, res) => {
       // requests whose Origin is not this server.
       if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 415, { error: 'content-type must be application/json' });
       if (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return json(res, 403, { error: 'cross-origin request refused' });
-      const chunks = [];
+      const chunks: Buffer[] = [];
       let size = 0;
       for await (const c of req) {
         size += c.length;
@@ -71,8 +72,8 @@ createServer(async (req, res) => {
     }
     json(res, 200, await handler(body));
   } catch (e) {
-    const status = e instanceof MeteringError ? e.status : 500;
-    json(res, status, { error: e.message, code: e.code });
+    const err = e as Error & { code?: string };
+    json(res, e instanceof MeteringError ? e.status : 500, { error: err.message, code: err.code });
   }
 }).listen(PORT, async () => {
   console.log(`demo client on :${PORT}, metering service at ${SERVICE_URL}`);

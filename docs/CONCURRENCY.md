@@ -46,7 +46,7 @@ Five round trips including BEGIN and COMMIT.
 ## Invariants
 | | Invariant | How it is protected / verified |
 |---|---|---|
-| I1 | Each counter equals the sum of accepted units in the request log for that owner and month | Counters and the log row are written by one statement under the lock; `brokenInvariants()` in tests and `loadtest/verify.mjs` recompute it from the database |
+| I1 | Each counter equals the sum of accepted units in the request log for that owner and month | Counters and the log row are written by one statement under the lock; `brokenInvariants()` in tests and `loadtest/verify.ts` recompute it from the database |
 | I2 | Accepted usage never exceeds the allowance in force at decision time | The decision is made on values read after taking the lock |
 | I3 | A rejection changes no counter | The counter updates are guarded by `$6::boolean` (accepted) in the same statement |
 | I4 | One `(account, requestId)` has exactly one decision, forever | Lookup under the lock + unique index + stored decision |

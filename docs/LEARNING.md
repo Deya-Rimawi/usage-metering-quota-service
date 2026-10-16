@@ -31,7 +31,7 @@ A **pure function** depends only on its inputs and does nothing else (no databas
 *Here:* `evaluate()` in `domain/rules.ts` takes limits and usage numbers and returns the broken rules. All database work is outside it.
 
 ## 8. Counters versus summing a log
-We could recompute usage by adding up every accepted request each time. That gets slower as history grows. Instead we keep a **running total** per month (`account_usage`, `user_usage`) and keep the log for auditing. The log is also how we *verify* the totals (`brokenInvariants` in tests, `loadtest/verify.mjs`).
+We could recompute usage by adding up every accepted request each time. That gets slower as history grows. Instead we keep a **running total** per month (`account_usage`, `user_usage`) and keep the log for auditing. The log is also how we *verify* the totals (`brokenInvariants` in tests, `loadtest/verify.ts`).
 
 ## 9. Hashing API keys
 We store `sha256(key)`, not the key. If the database leaks, the keys do not. Unlike passwords we use a fast hash: the key is 256 random bits, so it cannot be guessed, and we need to look it up on every request.

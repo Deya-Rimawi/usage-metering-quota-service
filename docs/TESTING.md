@@ -6,6 +6,7 @@ Everything below runs from a clean clone. Totals: **82 service tests + 2 end-to-
 ```bash
 docker compose up -d db                 # tests use the compose database on 127.0.0.1:5433
 cd service && npm install && npm run check      # typecheck + all 82 tests (about 15 s)
+(cd client && npm install && npm run typecheck); (cd loadtest && npm install && npm run typecheck)   # client and load tooling are TypeScript, run by Node directly
 cd .. && docker compose up -d --build && docker compose --profile tools run --rm e2e    # demo scenario against the live stack
 docker compose --profile tools run --rm loadtest all --duration 8 --runs 1 --label smoke   # load + invariants (see PERFORMANCE.md)
 ```
@@ -21,7 +22,7 @@ Tests use a real PostgreSQL (database `metering_test`, created on first run) rat
 | `hardening.test.ts` | 10 | Bad cursors, control characters and impossible periods give 4xx never 500; the Postgres data-error safety net; admin rate limit; per-account plan cap; response headers; docs switch; admin key recovery |
 | `gate.test.ts` | 6 | The per-account gate: one at a time per key, order, parallel across keys, errors do not block the queue, limit N, no leak, bounded queue (503) |
 | `foundation.test.ts` | 6 | Predefined plans seeded with the documented values, migrations are idempotent, the database refuses a user plan on an account, health and readiness, waiting for the database at startup |
-| `client/test/scenario.test.mjs` | 2 | The demo scenario end to end against the real service: every step as expected, final balances add up |
+| `client/test/scenario.test.ts` | 2 | The demo scenario end to end against the real service: every step as expected, final balances add up |
 
 ## Concurrency tests (the important ones)
 In `consume.test.ts`, all racing requests are spread over **two app instances** (two separate in-process gates, one database), so only the database lock can be what keeps them correct:

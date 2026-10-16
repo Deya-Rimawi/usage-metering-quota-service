@@ -33,16 +33,16 @@ The account's small allowance is deliberate: it is easy to hit the *shared* limi
 2. Or do it by hand: pick a user, enter pages, **Process**. **Retry last request** resends the same `requestId`. Use the "Change the rules" panel to switch a user's plan or edit the account limits and process again.
 
 ## Why this shows "no client code change"
-The only metering call in the business path is `consume()` ([`client/metering-client.mjs`](../client/metering-client.mjs)). Changing limits goes through *configuration* endpoints; `consume()` and the code around it are identical before and after, yet the same request gets a different answer.
+The only metering call in the business path is `consume()` ([`client/metering-client.ts`](../client/metering-client.ts)). Changing limits goes through *configuration* endpoints; `consume()` and the code around it are identical before and after, yet the same request gets a different answer.
 
 ## Reading the code
 | File | Role |
 |---|---|
-| `client/metering-client.mjs` | The integration pattern: a ~50-line wrapper over the HTTP API |
-| `client/demo.mjs` | Demo data + the scripted scenario (each step declares what it expects) |
-| `client/server.mjs` | Tiny server for the page; holds the API key so browsers never see it |
-| `client/public/index.html` | The page (plain HTML/JS, light and dark theme) |
-| `client/test/scenario.test.mjs` | End-to-end test of the scenario |
+| `client/metering-client.ts` | The integration pattern: a small typed wrapper over the HTTP API (response types included) |
+| `client/demo.ts` | Demo data + the scripted scenario (each step declares what it expects) |
+| `client/server.ts` | Tiny server for the page; holds the API key so browsers never see it |
+| `client/public/index.html` | The page (plain HTML plus a small inline script, light and dark theme; a browser cannot run TypeScript without a build step, so this one file stays JavaScript) |
+| `client/test/scenario.test.ts` | End-to-end test of the scenario |
 
 ## Test it
 ```bash

@@ -51,11 +51,11 @@
     },
     "/accounts": {
       "post": {
-        "summary": "Create an account and issue its API key (admin only); idempotent with externalId",
+        "summary": "Create an account and issue its API key (admin token, or self-service when enabled)",
         "tags": [
           "Accounts"
         ],
-        "description": "Requires `X-Admin-Token`. The `apiKey` in the response is shown once and never stored in plain form. If you pass `externalId` (your own id for the customer), creating it again returns the existing account with HTTP 200, `created: false` and `apiKey: null` instead of a duplicate; use the admin rotate endpoint if the first response was lost. Other fields only apply on first creation.",
+        "description": "With `X-Admin-Token` (operators and provisioning backends): idempotent when you pass `externalId` (your own id for the customer): creating it again returns the existing account with HTTP 200, `created: false` and `apiKey: null` instead of a duplicate; use the admin rotate endpoint if the first response was lost. Without a token: allowed only when the service runs with `OPEN_SIGNUP=true` (otherwise 401); `externalId` is then refused (403) and the request is strictly rate-limited and capped. The `apiKey` in the response is shown once and never stored in plain form. Other fields only apply on first creation.",
         "requestBody": {
           "required": true,
           "content": {
@@ -91,7 +91,8 @@
         "security": [
           {
             "adminToken": []
-          }
+          },
+          {}
         ],
         "responses": {
           "200": {

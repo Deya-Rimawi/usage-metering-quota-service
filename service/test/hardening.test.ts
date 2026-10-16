@@ -61,7 +61,8 @@ describe('bad input is a 4xx, never a 500', () => {
 
 describe('abuse limits', () => {
   it('rate-limits the admin endpoints per IP with a clear error', async () => {
-    const limited = makeApp(pool, undefined, { ADMIN_RATE_LIMIT_PER_MIN: '3' });
+    // Wrong-token guesses count against the STRICT limit (the generous admin limit is only for a valid token).
+    const limited = makeApp(pool, undefined, { SIGNUP_RATE_LIMIT_PER_MIN: '3' });
     const call = () => limited.inject({ method: 'POST', url: '/accounts', payload: { name: 'a' }, headers: { 'x-admin-token': 'wrong-token-1' } });
     expect([(await call()).statusCode, (await call()).statusCode, (await call()).statusCode]).toEqual([401, 401, 401]);
     const res = await call();

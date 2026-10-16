@@ -35,7 +35,7 @@ export const ADMIN = 'test-admin-token';
 export function makeApp(pool: pg.Pool, clock?: () => Date, env: Record<string, string> = {}): FastifyInstance {
   return buildApp({
     clock, pool,
-    config: loadConfig({ DATABASE_URL: TEST_URL, ADMIN_TOKEN: ADMIN, ADMIN_RATE_LIMIT_PER_MIN: '1000000', LOG_LEVEL: process.env.TEST_LOG ?? 'silent', ...env }),
+    config: loadConfig({ DATABASE_URL: TEST_URL, ADMIN_TOKEN: ADMIN, ADMIN_RATE_LIMIT_PER_MIN: '1000000', SIGNUP_RATE_LIMIT_PER_MIN: '1000000', LOG_LEVEL: process.env.TEST_LOG ?? 'silent', ...env }),
   });
 }
 

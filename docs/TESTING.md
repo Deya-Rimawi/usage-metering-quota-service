@@ -1,11 +1,11 @@
 # Testing
 
-Everything below runs from a clean clone. Totals: **112 service tests + 2 end-to-end tests + a load-test suite that re-verifies correctness after every run.**
+Everything below runs from a clean clone. Totals: **123 service tests + 2 end-to-end tests + a load-test suite that re-verifies correctness after every run.**
 
 ## How to run
 ```bash
 docker compose up -d db                 # tests use the compose database on 127.0.0.1:5433
-cd service && npm install && npm run check      # typecheck + all 112 tests (about 20 s)
+cd service && npm install && npm run check      # typecheck + all 123 tests (about 25 s)
 (cd client && npm install && npm run typecheck); (cd loadtest && npm install && npm run typecheck)   # client and load tooling are TypeScript, run by Node directly
 cd .. && docker compose up -d --build && docker compose --profile tools run --rm e2e    # demo scenario against the live stack
 docker compose --profile tools run --rm loadtest all --duration 8 --runs 1 --label smoke   # load + invariants (see PERFORMANCE.md)
@@ -19,6 +19,7 @@ Tests use a real PostgreSQL (database `metering_test`, created on first run) rat
 | `api.test.ts` | 22 | API-key authentication (missing, invalid, rotated), admin token, hash-only storage, users, pagination, custom plans (create, edit, share, `null` = unlimited, read-only predefined), **account isolation on users and plans**, **idempotent account creation** (retry, simultaneous creations, lost-key recovery, admin and account credentials never overlapping) |
 | `consume.test.ts` | 35 | The brief's three consumption examples; account usage = sum of users; shared plan keeps separate usage; plan switch keeps usage; plan edit applies to the next request; allowance cut below usage; history keeps the limits applied then; month rollover (and a request that queues across midnight); safe retries (replay, replay of a rejection after a plan change, 409 on a changed payload, replay in a later month); input validation and cross-account refusal; **daily allowance** (user and account rejection, midnight reset while the month keeps counting, order before monthly, plan switch and edit, retry on a later day, queue across midnight, concurrency); **concurrency** (below); decision order |
 | `usage.test.ts` | 16 | Usage and remaining for account and users (monthly and daily), past months, malformed and future periods, user-list pagination, limits endpoint follows plan changes, request history (order, filters, stable pagination while new requests arrive), history survives plan changes, OpenAPI is served and complete |
+| `signup.test.ts` | 11 | Self-service signup: closed by default; works and returns a usable key when enabled; the new account behaves like any other; `externalId` refused for anonymous callers with nothing leaked; a wrong admin token is never turned into a signup; the admin path unchanged; only signup opens (admin and data routes stay protected); rate limit per IP with the admin limit separate; an exact cap even for 20 simultaneous signups |
 | `hardening.test.ts` | 10 | Bad cursors, control characters and impossible periods give 4xx never 500; the Postgres data-error safety net; admin rate limit; per-account plan cap; response headers; docs switch; admin key recovery |
 | `gate.test.ts` | 6 | The per-account gate: one at a time per key, order, parallel across keys, errors do not block the queue, limit N, no leak, bounded queue (503) |
 | `foundation.test.ts` | 6 | Predefined plans seeded with the documented values, migrations are idempotent, the database refuses a user plan on an account, health and readiness, waiting for the database at startup |
@@ -43,6 +44,7 @@ A passing test proves little unless it fails when the code is wrong. I broke the
 | `created_at` back to `now()` (transaction start) | "history order follows decision order" |
 | Skip the month re-check after taking the lock | "a request that queues across midnight..." |
 | Read usage without a shared snapshot | "a usage response describes one instant" (3 of 3 runs) |
+| Self-service: `externalId` allowed anonymously / wrong token downgraded to signup / one rate limit for everyone / signup open when the switch is off / no lock around the cap | one failing test each (the cap burst failed 3 of 3 runs) |
 | No race-safety on account creation (`ON CONFLICT` removed) | "ten simultaneous creations ... exactly one account" |
 | Existing account not looked up on a repeat | "only the first call decides name and plan" |
 | Daily rule not evaluated | 8 of the 10 daily tests |

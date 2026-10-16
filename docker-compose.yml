@@ -24,6 +24,9 @@ services:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-metering}@db:5432/metering
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
       PG_POOL_MAX: ${PG_POOL_MAX:-20}
+      OPEN_SIGNUP: ${OPEN_SIGNUP:-false}
+      SIGNUP_RATE_LIMIT_PER_MIN: ${SIGNUP_RATE_LIMIT_PER_MIN:-10}
+      SIGNUP_MAX_ACCOUNTS: ${SIGNUP_MAX_ACCOUNTS:-10000}
       ACCOUNT_CONCURRENCY: ${ACCOUNT_CONCURRENCY:-1}
     depends_on:
       db:

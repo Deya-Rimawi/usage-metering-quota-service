@@ -1,0 +1,19 @@
+{
+  "name": "Usage Metering & Quota Service",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "onCreateCommand": "cp -n .env.example .env; npm ci --prefix service && npm ci --prefix client && npm ci --prefix loadtest",
+  "postStartCommand": "docker compose up -d --build",
+  "forwardPorts": [3000, 8080],
+  "portsAttributes": {
+    "3000": { "label": "Metering service (API docs at /docs)", "onAutoForward": "notify" },
+    "8080": { "label": "Demo client: click 'Run scenario'", "onAutoForward": "openBrowser" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-azuretools.vscode-docker", "vitest.explorer"]
+    }
+  }
+}

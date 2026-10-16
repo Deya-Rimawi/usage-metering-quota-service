@@ -2,21 +2,23 @@
 
 Backend service that tracks usage and decides whether a user may consume units, enforcing an account plan and a user plan together.
 
-> **Status:** Day 4 of 7: full API done (accounts, users, plans, consume, usage, history, OpenAPI docs). Demo client, load tests and polish come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
+> **Status:** Day 5 of 7: API and demo client done. Load tests and final polish come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Quick start
 ```bash
 cp .env.example .env
-docker compose up --build        # service on http://localhost:3000, Postgres on 127.0.0.1:5433
+docker compose up --build        # service :3000, demo client :8080, Postgres on 127.0.0.1:5433
 curl localhost:3000/ready
 ```
-Interactive API docs: http://localhost:3000/docs
+- **Demo client:** http://localhost:8080 (click *Run scenario*; details in [`docs/DEMO.md`](docs/DEMO.md))
+- **Interactive API docs:** http://localhost:3000/docs
 
 ## Develop and test
 ```bash
 cd service && npm install
 docker compose up -d db          # tests use the compose database on 127.0.0.1:5433
 npm run check                    # typecheck + tests
+docker compose --profile tools run --rm e2e   # demo scenario against the live stack
 ```
 
 ## Predefined plans
@@ -60,6 +62,7 @@ Errors always look like `{"error":{"code":"...","message":"..."}}`.
 
 ## Docs
 - [`docs/PLAN.md`](docs/PLAN.md): architecture, schedule, and the documentation roadmap
+- [`docs/DEMO.md`](docs/DEMO.md): the example client and the guided scenario
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): layers, diagrams, request lifecycle
 - [`docs/API.md`](docs/API.md): endpoint reference, error catalogue ([`openapi.json`](docs/openapi.json))
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md): ER diagram, constraints, invariants

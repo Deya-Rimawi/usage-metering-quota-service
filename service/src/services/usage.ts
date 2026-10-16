@@ -3,6 +3,7 @@ import { invalid, notFound } from '../domain/errors';
 import { parsePeriod, periodLabel, periodOf, type Clock } from '../domain/period';
 import { describe, type Limits, type Violation } from '../domain/rules';
 import * as accounts from '../repositories/accounts';
+import { withSnapshot, type Db } from '../repositories/db';
 import * as plans from '../repositories/plans';
 import * as requests from '../repositories/requests';
 import * as usage from '../repositories/usage';
@@ -28,41 +29,45 @@ function side(planId: string, planName: string, plan: Limits, used: number, curr
   return current ? r : { ...r, remaining: null };
 }
 
-async function accountSide(pool: pg.Pool, accountId: string, period: string, current: boolean) {
-  const acc = await accounts.get(pool, accountId);
-  const plan = (await plans.getVisible(pool, accountId, acc.planId))!;
-  return side(plan.id, plan.name, plan, await usage.accountUsed(pool, accountId, period), current);
+async function accountSide(db: Db, accountId: string, period: string, current: boolean) {
+  const acc = await accounts.get(db, accountId);
+  const plan = (await plans.getVisible(db, accountId, acc.planId))!;
+  return side(plan.id, plan.name, plan, await usage.accountUsed(db, accountId, period), current);
 }
 
 export async function accountUsage(
   pool: pg.Pool, clock: Clock, accountId: string, rawPeriod: string | undefined, limit: number, after?: { t: string; id: string },
 ) {
   const { period, current } = resolvePeriod(clock, rawPeriod);
-  const rows = await usage.listUsersWithUsage(pool, accountId, period, limit + 1, after);
-  const page = rows.slice(0, limit);
-  const byId = new Map((await plans.listVisible(pool, accountId)).map((p) => [p.id, p]));
-  return {
-    period: periodLabel(period),
-    current,
-    account: await accountSide(pool, accountId, period, current),
-    users: page.map((r) => ({ userId: r.userId, ...side(r.planId, byId.get(r.planId)!.name, byId.get(r.planId)!, r.used, current) })),
-    next: rows.length > limit ? { t: page[page.length - 1]!.createdAtRaw, id: page[page.length - 1]!.uid } : null,
-  };
+  return withSnapshot(pool, async (db) => {
+    const rows = await usage.listUsersWithUsage(db, accountId, period, limit + 1, after);
+    const page = rows.slice(0, limit);
+    const byId = new Map((await plans.listVisible(db, accountId)).map((p) => [p.id, p]));
+    return {
+      period: periodLabel(period),
+      current,
+      account: await accountSide(db, accountId, period, current),
+      users: page.map((r) => ({ userId: r.userId, ...side(r.planId, byId.get(r.planId)!.name, byId.get(r.planId)!, r.used, current) })),
+      next: rows.length > limit ? { t: page[page.length - 1]!.createdAtRaw, id: page[page.length - 1]!.uid } : null,
+    };
+  });
 }
 
 /** One user plus the account they draw from: everything needed to answer "what can this user do right now?". */
 export async function userUsage(pool: pg.Pool, clock: Clock, accountId: string, userId: string, rawPeriod?: string) {
   const { period, current } = resolvePeriod(clock, rawPeriod);
-  const u = await users.find(pool, accountId, userId);
-  if (!u) throw notFound('User');
-  const plan = (await plans.getVisible(pool, accountId, u.planId))!;
-  return {
-    userId,
-    period: periodLabel(period),
-    current,
-    account: await accountSide(pool, accountId, period, current),
-    user: side(plan.id, plan.name, plan, await usage.userUsed(pool, u.uid, period), current),
-  };
+  return withSnapshot(pool, async (db) => {
+    const u = await users.find(db, accountId, userId);
+    if (!u) throw notFound('User');
+    const plan = (await plans.getVisible(db, accountId, u.planId))!;
+    return {
+      userId,
+      period: periodLabel(period),
+      current,
+      account: await accountSide(db, accountId, period, current),
+      user: side(plan.id, plan.name, plan, await usage.userUsed(db, u.uid, period), current),
+    };
+  });
 }
 
 export async function history(

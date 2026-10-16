@@ -66,9 +66,25 @@ One account is decided at about **250-300 requests/s** (exact totals require ser
 docker compose --profile tools run --rm --build loadtest all --label mine   # ~6 minutes
 ```
 
+## Configuration
+All via environment variables (Compose reads `.env`; see `.env.example`). Only the first two normally need changing.
+| Variable | Default | Meaning |
+|---|---|---|
+| `ADMIN_TOKEN` | `dev-admin-token` (demo) | Secret for creating accounts. **Change it before exposing the service.** The service warns while the demo value is in use. |
+| `POSTGRES_PASSWORD` | `metering` (demo) | Database password |
+| `BIND_ADDR` | all interfaces | Set to `127.0.0.1` to publish the service and demo client on localhost only |
+| `SERVICE_PORT`, `CLIENT_PORT` | 3000, 8080 | Host ports for the service and demo client, if those are already in use |
+| `PG_POOL_MAX` | 20 | Database connections per service instance |
+| `ACCOUNT_CONCURRENCY` | 1 | Consumes allowed to run at once per account per instance ([ADR-006](docs/decisions/ADR-006-per-account-gate.md)) |
+| `ACCOUNT_QUEUE_MAX` | 1000 | Consumes allowed to wait for one account before the service answers 503 |
+| `ADMIN_RATE_LIMIT_PER_MIN` | 600 | Per-IP limit on admin endpoints |
+| `DOCS_ENABLED` | true | Serve Swagger UI at `/docs` |
+| `LOG_LEVEL` | info | pino log level |
+
 ## Docs
 - [`docs/PLAN.md`](docs/PLAN.md): architecture, schedule, and the documentation roadmap
 - [`docs/DEMO.md`](docs/DEMO.md): the example client and the guided scenario
+- [`docs/SECURITY.md`](docs/SECURITY.md): threat model, controls, review results
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): layers, diagrams, request lifecycle
 - [`docs/API.md`](docs/API.md): endpoint reference, error catalogue ([`openapi.json`](docs/openapi.json))
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md): ER diagram, constraints, invariants

@@ -4,7 +4,7 @@ import type pg from 'pg';
 import { z } from 'zod';
 import * as users from '../../services/users';
 import { decodeCursor, encodeCursor } from '../pagination';
-import { pageQuery, userIdSchema, userSchema } from '../schemas';
+import { pageQuery, planIdSchema, userIdSchema, userSchema } from '../schemas';
 
 export function userRoutes(app: FastifyInstance, pool: pg.Pool) {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -12,7 +12,7 @@ export function userRoutes(app: FastifyInstance, pool: pg.Pool) {
 
   r.post(
     '/users',
-    { schema: { tags: ['Users'], summary: 'Register a user under the account', body: z.object({ userId: userIdSchema, planId: z.string().default('basic') }), response: { 201: userSchema } } },
+    { schema: { tags: ['Users'], summary: 'Register a user under the account', body: z.object({ userId: userIdSchema, planId: planIdSchema.default('basic') }), response: { 201: userSchema } } },
     async (req, reply) => reply.code(201).send(await users.createUser(pool, req.account.id, req.body)),
   );
 
@@ -31,7 +31,7 @@ export function userRoutes(app: FastifyInstance, pool: pg.Pool) {
 
   r.put(
     '/users/:userId/plan',
-    { schema: { tags: ['Users'], summary: "Change a user's plan (usage is preserved)", params, body: z.object({ planId: z.string() }), response: { 200: userSchema } } },
+    { schema: { tags: ['Users'], summary: "Change a user's plan (usage is preserved)", params, body: z.object({ planId: planIdSchema }), response: { 200: userSchema } } },
     (req) => users.setUserPlan(pool, req.account.id, req.params.userId, req.body.planId),
   );
 }

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Clock } from '../../domain/period';
 import type { Gate } from '../../services/accountGate';
 import { consume } from '../../services/consume';
-import { consumeResponse, MAX_PER_REQUEST, userIdSchema } from '../schemas';
+import { consumeResponse, MAX_PER_REQUEST, requestIdSchema, userIdSchema } from '../schemas';
 
 export function consumeRoutes(app: FastifyInstance, pool: pg.Pool, clock: Clock, gate: Gate) {
   // A rejection is a normal business outcome, so it is HTTP 200 with accepted:false.
@@ -18,7 +18,7 @@ export function consumeRoutes(app: FastifyInstance, pool: pg.Pool, clock: Clock,
         body: z.object({
           userId: userIdSchema,
           units: z.number().int().min(1).max(MAX_PER_REQUEST),
-          requestId: z.string().min(1).max(200),
+          requestId: requestIdSchema,
         }),
         response: { 200: consumeResponse },
       },

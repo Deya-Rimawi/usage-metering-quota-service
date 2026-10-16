@@ -42,7 +42,21 @@ describe('serialized (per-account gate)', () => {
 
   it('forgets idle accounts (no leak) and works again afterwards', async () => {
     const gate = createGate(1);
-    await gate('a', async () => {});
+    await Promise.all([gate('a', async () => tick()), gate('a', async () => tick()), gate('b', async () => tick())]);
+    expect(gate.size).toBe(0);
     await expect(gate('a', async () => 7)).resolves.toBe(7);
+    expect(gate.size).toBe(0);
+  });
+
+  it('a bounded queue answers 503 instead of waiting forever, and recovers', async () => {
+    const gate = createGate(1, 1); // one running, one waiting; a third is refused
+    let release!: () => void;
+    const running = gate('a', () => new Promise<void>((r) => (release = r)));
+    const waiting = gate('a', async () => 'second');
+    await expect(gate('a', async () => 'third')).rejects.toMatchObject({ status: 503, code: 'account_busy' });
+    release();
+    await running;
+    await expect(waiting).resolves.toBe('second');
+    await expect(gate('a', async () => 'later')).resolves.toBe('later');
   });
 });

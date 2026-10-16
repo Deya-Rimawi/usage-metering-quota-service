@@ -66,11 +66,13 @@
                   "name": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 200
+                    "maxLength": 200,
+                    "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
                   },
                   "planId": {
                     "default": "starter",
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_.:-]{1,100}$"
                   }
                 },
                 "required": [
@@ -170,6 +172,52 @@
                   },
                   "required": [
                     "account",
+                    "apiKey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/{accountId}/api-key/rotate": {
+      "post": {
+        "summary": "Issue a new API key for an account (admin only; for a lost key)",
+        "tags": [
+          "Accounts"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "accountId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "adminToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiKey": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
                     "apiKey"
                   ],
                   "additionalProperties": false
@@ -282,7 +330,8 @@
                 "type": "object",
                 "properties": {
                   "planId": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_.:-]{1,100}$"
                   }
                 },
                 "required": [
@@ -422,7 +471,8 @@
                   },
                   "planId": {
                     "default": "basic",
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_.:-]{1,100}$"
                   }
                 },
                 "required": [
@@ -528,7 +578,8 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 300
             },
             "in": "query",
             "name": "cursor",
@@ -739,7 +790,8 @@
                 "type": "object",
                 "properties": {
                   "planId": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_.:-]{1,100}$"
                   }
                 },
                 "required": [
@@ -939,7 +991,8 @@
                   "name": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 100
+                    "maxLength": 100,
+                    "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
                   },
                   "monthlyAllowance": {
                     "default": null,
@@ -1034,7 +1087,8 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:-]{1,100}$"
             },
             "in": "path",
             "name": "planId",
@@ -1117,7 +1171,8 @@
                   "name": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 100
+                    "maxLength": 100,
+                    "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
                   },
                   "monthlyAllowance": {
                     "nullable": true,
@@ -1139,7 +1194,8 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:-]{1,100}$"
             },
             "in": "path",
             "name": "planId",
@@ -1233,7 +1289,8 @@
                   "requestId": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 200
+                    "maxLength": 200,
+                    "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
                   }
                 },
                 "required": [
@@ -1444,7 +1501,8 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 300
             },
             "in": "query",
             "name": "cursor",
@@ -1452,8 +1510,7 @@
           },
           {
             "schema": {
-              "type": "string",
-              "pattern": "^\\d{4}-\\d{2}$"
+              "type": "string"
             },
             "in": "query",
             "name": "period",
@@ -1580,8 +1637,7 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "pattern": "^\\d{4}-\\d{2}$"
+              "type": "string"
             },
             "in": "query",
             "name": "period",
@@ -1841,7 +1897,8 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 300
             },
             "in": "query",
             "name": "cursor",
@@ -1858,8 +1915,7 @@
           },
           {
             "schema": {
-              "type": "string",
-              "pattern": "^\\d{4}-\\d{2}$"
+              "type": "string"
             },
             "in": "query",
             "name": "period",

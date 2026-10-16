@@ -20,16 +20,19 @@ The key identifies the calling account. Every query is scoped to that account, s
 | Status | Codes | Meaning |
 |---|---|---|
 | 401 | `unauthorized` | Missing/invalid API key or admin token |
-| 403 | `predefined_plan_read_only` | Tried to edit a predefined plan |
+| 403 | `predefined_plan_read_only`, `account_limit_reached` | Tried to edit a predefined plan; or the account has hit its plan/user cap |
 | 404 | `not_found` | Unknown route, or user/plan that does not exist **for this account** |
 | 409 | `user_exists`, `plan_name_taken`, `idempotency_conflict` | Duplicate, or a `requestId` reused with a different user/amount |
-| 422 | `validation_error`, `wrong_plan_kind`, `bad_cursor`, `bad_period`, `future_period` | Invalid input |
+| 422 | `validation_error`, `wrong_plan_kind`, `bad_cursor`, `bad_period`, `future_period`, `invalid_input` | Invalid input (`invalid_input`: a value the database refused) |
+| 429 | `rate_limited` | Too many admin requests from one IP |
 | 500 | `internal_error` | Bug or outage; details are in the server log, never in the response |
+| 503 | `account_busy` | Too many consumes already waiting for this account on this instance; retry shortly |
 
 ## Endpoints
 | Method & path | Purpose |
 |---|---|
 | `POST /accounts` | (admin) Create an account; returns the API key **once** |
+| `POST /accounts/{accountId}/api-key/rotate` | (admin) New key for an account that lost its key |
 | `GET /account` | The account, its plan and limits |
 | `PUT /account/plan` | `{planId}` change the account plan |
 | `POST /account/api-key/rotate` | New key; the old one stops working immediately |

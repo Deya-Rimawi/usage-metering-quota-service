@@ -1,3 +1,5 @@
+import { AppError } from '../domain/errors';
+
 /**
  * Per-account, in-process limit on concurrent consumes: at most `limit` run at once per account in this
  * process; the rest wait here, in memory, in arrival order.
@@ -11,15 +13,16 @@
  * This is a performance guard, NOT the correctness mechanism: the database lock stays authoritative, so
  * several service instances (each with its own gate) remain correct.
  */
-export type Gate = <T>(key: string, fn: () => Promise<T>) => Promise<T>;
+export type Gate = (<T>(key: string, fn: () => Promise<T>) => Promise<T>) & { readonly size: number };
 
 /** One gate per service instance (tests build several to simulate several instances). */
-export function createGate(limit: number): Gate {
+export function createGate(limit: number, maxWaiting = Infinity): Gate {
   const accounts = new Map<string, { active: number; waiting: Array<() => void> }>();
-  return async (key, fn) => {
+  const gate = async <T>(key: string, fn: () => Promise<T>): Promise<T> => {
     let s = accounts.get(key);
     if (!s) accounts.set(key, (s = { active: 0, waiting: [] }));
     if (s.active < limit) s.active++;
+    else if (s.waiting.length >= maxWaiting) throw new AppError(503, 'account_busy', 'Too many requests are already waiting for this account; retry shortly');
     else await new Promise<void>((resolve) => s.waiting.push(resolve)); // slot is handed over by whoever finishes
     try {
       return await fn();
@@ -29,4 +32,5 @@ export function createGate(limit: number): Gate {
       else if (--s.active === 0) accounts.delete(key); // no leak for idle accounts
     }
   };
+  return Object.defineProperty(gate, 'size', { get: () => accounts.size }) as Gate; // accounts currently tracked (for tests)
 }

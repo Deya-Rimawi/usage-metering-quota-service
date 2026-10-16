@@ -32,8 +32,11 @@ import { buildApp } from '../src/http/app';
 
 export const ADMIN = 'test-admin-token';
 
-export function makeApp(pool: pg.Pool, clock?: () => Date): FastifyInstance {
-  return buildApp({ clock, pool, config: loadConfig({ DATABASE_URL: TEST_URL, ADMIN_TOKEN: ADMIN, LOG_LEVEL: process.env.TEST_LOG ?? "silent" }) });
+export function makeApp(pool: pg.Pool, clock?: () => Date, env: Record<string, string> = {}): FastifyInstance {
+  return buildApp({
+    clock, pool,
+    config: loadConfig({ DATABASE_URL: TEST_URL, ADMIN_TOKEN: ADMIN, ADMIN_RATE_LIMIT_PER_MIN: '1000000', LOG_LEVEL: process.env.TEST_LOG ?? 'silent', ...env }),
+  });
 }
 
 /** Tiny HTTP client bound to one API key. */
@@ -70,8 +73,9 @@ export const consume = async (c: Client, userId: string, units: number, requestI
   (await c.post('/consume', { userId, units, requestId })).json();
 
 /**
- * Invariants I1 + I5 from docs/CONCURRENCY.md, checked straight from the database:
- * every counter equals the sum of accepted units in the request log, and the account total equals the sum of its users.
+ * Invariants I1, I2 and I5 from docs/CONCURRENCY.md, checked straight from the database:
+ * every counter equals the sum of accepted units in the request log, the account total equals the sum of its users,
+ * and no accepted decision left a balance above the allowance that applied to it.
  * Returns the offending rows (empty = healthy).
  */
 export async function brokenInvariants(pool: pg.Pool) {
@@ -87,5 +91,20 @@ export async function brokenInvariants(pool: pg.Pool) {
     SELECT au.account_id FROM account_usage au
     WHERE au.units <> (SELECT COALESCE(sum(uu.units), 0) FROM user_usage uu JOIN users u ON u.id = uu.user_id
                        WHERE u.account_id = au.account_id AND uu.period = au.period)`);
-  return [...user.rows, ...account.rows, ...sums.rows];
+  // I2, per decision: the balance after every accepted decision fits inside the allowance that applied to it.
+  // (Uses the snapshot stored with the decision, so it stays valid however plans were edited afterwards.)
+  const overspent = await pool.query(`
+    SELECT request_id FROM requests WHERE accepted AND (
+      ((applied->'user'->>'monthlyAllowance') IS NOT NULL
+        AND (applied->'user'->>'used')::bigint > (applied->'user'->>'monthlyAllowance')::bigint)
+      OR ((applied->'account'->>'monthlyAllowance') IS NOT NULL
+        AND (applied->'account'->>'used')::bigint > (applied->'account'->>'monthlyAllowance')::bigint))`);
+  // The other direction: accepted requests that left no counter behind.
+  const uncounted = await pool.query(`
+    SELECT r.user_id FROM (SELECT user_id, period FROM requests WHERE accepted GROUP BY 1, 2) r
+    LEFT JOIN user_usage uu USING (user_id, period) WHERE uu.user_id IS NULL`);
+  const uncountedAcc = await pool.query(`
+    SELECT r.account_id FROM (SELECT account_id, period FROM requests WHERE accepted GROUP BY 1, 2) r
+    LEFT JOIN account_usage au USING (account_id, period) WHERE au.account_id IS NULL`);
+  return [...user.rows, ...account.rows, ...sums.rows, ...overspent.rows, ...uncounted.rows, ...uncountedAcc.rows];
 }

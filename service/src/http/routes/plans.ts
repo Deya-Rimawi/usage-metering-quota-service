@@ -3,11 +3,11 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import type pg from 'pg';
 import { z } from 'zod';
 import * as plans from '../../services/plans';
-import { allowanceSchema, perRequestSchema, planSchema } from '../schemas';
+import { allowanceSchema, perRequestSchema, planIdSchema, planSchema, text } from '../schemas';
 
 export function planRoutes(app: FastifyInstance, pool: pg.Pool) {
   const r = app.withTypeProvider<ZodTypeProvider>();
-  const params = z.object({ planId: z.string() });
+  const params = z.object({ planId: planIdSchema });
 
   r.get('/plans', { schema: { tags: ['Plans'], summary: 'Predefined plans plus your custom plans', response: { 200: z.object({ plans: z.array(planSchema) }) } } }, async (req) => ({
     plans: await plans.listPlans(pool, req.account.id),
@@ -21,7 +21,7 @@ export function planRoutes(app: FastifyInstance, pool: pg.Pool) {
         description: '`null` for a limit means unlimited. Any number of users may share one plan; each keeps separate usage.',
         body: z.object({
           kind: z.enum(['account', 'user']),
-          name: z.string().min(1).max(100),
+          name: text(100),
           monthlyAllowance: allowanceSchema.default(null),
           maxPerRequest: perRequestSchema.default(null),
         }),
@@ -43,7 +43,7 @@ export function planRoutes(app: FastifyInstance, pool: pg.Pool) {
         tags: ['Plans'], summary: 'Edit a custom plan (applies to the next request)',
         description: 'Partial update. Omitted fields are unchanged, `null` means unlimited. Predefined plans return 403.',
         params,
-        body: z.object({ name: z.string().min(1).max(100), monthlyAllowance: allowanceSchema, maxPerRequest: perRequestSchema }).partial(),
+        body: z.object({ name: text(100), monthlyAllowance: allowanceSchema, maxPerRequest: perRequestSchema }).partial(),
         response: { 200: planSchema },
       },
     },

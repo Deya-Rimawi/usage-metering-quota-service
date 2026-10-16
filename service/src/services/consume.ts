@@ -53,10 +53,16 @@ export async function consume(
   pool: pg.Pool, clock: Clock, gate: Gate,
   accountId: string, input: { userId: string; units: number; requestId: string },
 ): Promise<ConsumeResult> {
-  const period = periodOf(clock());
-
   return gate(accountId, () => withTx(pool, async (tx) => {
-    const accountUsed = await usage.lockAccount(tx, accountId, period);
+    let period = periodOf(clock());
+    let accountUsed = await usage.lockAccount(tx, accountId, period);
+    // A request can queue across midnight UTC on the 1st. "Processed" means now that we hold the lock, so
+    // if the month turned while we waited, charge the new month (its row is locked too; no cycle is possible).
+    const processedIn = periodOf(clock());
+    if (processedIn !== period) {
+      period = processedIn;
+      accountUsed = await usage.lockAccount(tx, accountId, period);
+    }
     const ctx = await usage.readContext(tx, accountId, input.userId, input.requestId, period);
 
     if (ctx.stored) return replay(ctx.stored, input);
@@ -84,7 +90,7 @@ export async function consume(
 }
 
 /** A retry gets the original decision back, unchanged, and never counts twice. */
-function replay(s: NonNullable<Awaited<ReturnType<typeof usage.readContext>>['stored']>, input: { userId: string; units: number; requestId: string }) {
+function replay(s: usage.StoredDecision, input: { userId: string; units: number; requestId: string }) {
   if (s.userId !== input.userId || s.units !== input.units) {
     throw conflict('idempotency_conflict', `requestId '${input.requestId}' was already used with a different user or amount`);
   }

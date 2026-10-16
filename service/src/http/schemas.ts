@@ -1,8 +1,14 @@
 import { z } from 'zod';
+import { parsePeriod } from '../domain/period';
 
 // Caps keep every BIGINT safely inside a JS number (see docs/ASSUMPTIONS.md).
 export const MAX_ALLOWANCE = 1_000_000_000_000;
 export const MAX_PER_REQUEST = 1_000_000_000;
+
+/** Text from clients: no control characters (NUL makes Postgres throw) and a bounded length. */
+export const text = (max: number) => z.string().min(1).max(max).regex(/^[^\u0000-\u001F\u007F]+$/, 'Control characters are not allowed');
+export const planIdSchema = z.string().regex(/^[A-Za-z0-9_.:-]{1,100}$/, 'Invalid plan id');
+export const requestIdSchema = text(200);
 
 export const userIdSchema = z.string().regex(/^[A-Za-z0-9._:@-]{1,200}$/, 'Use 1-200 characters from A-Z a-z 0-9 . _ : @ -');
 export const allowanceSchema = z.number().int().min(1).max(MAX_ALLOWANCE).nullable();
@@ -22,11 +28,9 @@ export const planSchema = z.object({
 export const accountSchema = z.object({ id: z.string(), name: z.string(), plan: planSchema, createdAt: z.string() });
 export const userSchema = z.object({ userId: z.string(), plan: planSchema, createdAt: z.string() });
 
-export const errorSchema = z.object({ error: z.object({ code: z.string(), message: z.string(), details: z.unknown().optional() }) });
-
 export const pageQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
-  cursor: z.string().optional(),
+  cursor: z.string().max(300).optional(),
 });
 
 export const violationSchema = z.object({
@@ -50,7 +54,7 @@ export const consumeResponse = z.object({
   account: side, user: side, replayed: z.boolean(),
 });
 
-export const periodQuery = z.string().regex(/^\d{4}-\d{2}$/, "Use YYYY-MM, e.g. 2026-10");
+export const periodQuery = z.string().refine((s) => parsePeriod(s) !== null, 'Use YYYY-MM, e.g. 2026-10');
 
 export const usageResponse = z.object({
   period: z.string(), current: z.boolean(), account: side,

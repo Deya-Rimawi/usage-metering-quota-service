@@ -268,3 +268,77 @@ describe('concurrency (two service instances, one database)', () => {
     expect(await brokenInvariants(pool)).toEqual([]);
   });
 });
+
+describe('decision order and the month a request is charged to', () => {
+  it('history order follows decision order: created_at is stamped after the lock, not at transaction start', async () => {
+    const { c } = await setup(null, null);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'p', null, null));
+    await consume(c, 'alice', 1, 'warm-up'); // creates the counter row we are about to hold
+
+    const holder = await pool.connect(); // another "instance" holding the account lock for a while
+    await holder.query('BEGIN');
+    await holder.query('SELECT 1 FROM account_usage FOR UPDATE');
+    const waiting = consume(c, 'alice', 1, 'waited'); // starts its transaction now, then blocks on the lock
+    await new Promise((r) => setTimeout(r, 300));
+    const released = (await holder.query('SELECT clock_timestamp() AS t')).rows[0].t as Date;
+    await holder.query('COMMIT');
+    holder.release();
+    await waiting;
+
+    const { rows } = await pool.query("SELECT created_at FROM requests WHERE request_id = 'waited'");
+    expect(rows[0].created_at.getTime()).toBeGreaterThanOrEqual(released.getTime()); // would be ~300 ms earlier with now()
+  });
+
+  it('a request that queues across midnight UTC on the 1st is charged to the new month', async () => {
+    let calls = 0;
+    const turning = makeApp(pool, () => (++calls === 1 ? new Date('2026-10-31T23:59:59.9Z') : new Date('2026-11-01T00:00:00.1Z')));
+    const root = await createAccount(turning, 'acme');
+    const c = client(turning, root.key);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'p', null, null));
+    calls = 0; // the next consume sees October on arrival and November once it holds the lock
+    const r = await consume(c, 'alice', 5);
+    expect(r).toMatchObject({ accepted: true, period: '2026-11' });
+    const { rows } = await pool.query('SELECT period::text, units FROM account_usage ORDER BY period');
+    expect(rows).toEqual([{ period: '2026-10-01', units: 0 }, { period: '2026-11-01', units: 5 }]);
+    expect(await brokenInvariants(pool)).toEqual([]);
+    await turning.close();
+  });
+
+  it('a retry in a later month replays the stored decision and charges nothing to the new month', async () => {
+    const { c } = await setup(null, null);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'p', 100, null));
+    await consume(c, 'alice', 10, 'r1');
+    now = new Date('2026-11-05T09:00:00Z');
+    const again = await consume(c, 'alice', 10, 'r1');
+    expect(again).toMatchObject({ replayed: true, accepted: true, period: '2026-10' });
+    const { rows } = await pool.query("SELECT COALESCE(sum(units), 0)::int AS n FROM user_usage WHERE period = '2026-11-01'");
+    expect(rows[0].n).toBe(0);
+    expect(await brokenInvariants(pool)).toEqual([]);
+  });
+});
+
+describe('concurrency with a higher per-account limit and consistent reads', () => {
+  it('ACCOUNT_CONCURRENCY=3 on a single instance still never overspends', async () => {
+    const wide = makeApp(pool, () => now, { ACCOUNT_CONCURRENCY: '3' });
+    const root = await createAccount(wide, 'acme');
+    const c = client(wide, root.key);
+    await newUser(c, 'alice', await newPlan(c, 'user', 'p', 100, null));
+    const results = await Promise.all(Array.from({ length: 200 }, () => consume(c, 'alice', 1)));
+    expect(results.filter((r) => r.accepted)).toHaveLength(100);
+    expect(await brokenInvariants(pool)).toEqual([]);
+    await wide.close();
+  });
+
+  it('a usage response describes one instant: account total = sum of users, even during writes', async () => {
+    const { c, root } = await setup(null, null);
+    const plan = await newPlan(c, 'user', 'p', null, null);
+    for (const u of ['a', 'b', 'c', 'd']) await newUser(c, u, plan);
+    const racers = twoInstances(root.key);
+    const writes = Array.from({ length: 160 }, (_, i) => consume(racers, 'abcd'[i % 4]!, 3));
+    const reads = Array.from({ length: 60 }, async () => {
+      const body = (await c.get('/usage')).json();
+      expect(body.users.reduce((n: number, u: any) => n + u.used, 0)).toBe(body.account.used);
+    });
+    await Promise.all([...writes, ...reads]);
+  });
+});

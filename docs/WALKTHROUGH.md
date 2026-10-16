@@ -16,8 +16,8 @@ How to explain this project, trace a request, and handle questions and live chan
 | 6 | `repositories/usage.ts` `lockAccount` | `SELECT units FROM account_usage ... FOR UPDATE`. Any other transaction doing the same for this account waits here. If the row does not exist yet (first request of the month) it is created, then locked. |
 | 7 | `repositories/usage.ts` `readContext` | **A new statement** (fresh snapshot, so it sees everything the previous lock holder committed). One query returns: the user (null if not in this account), the user's usage this month, the account plan and user plan, and any earlier decision for this `requestId`. |
 | 8 | `services/consume.ts` | If an earlier decision exists: `replay` returns it (`replayed: true`), or 409 if the user/amount differ. If the user is unknown: 404. |
-| 9 | `domain/rules.ts` `evaluate` | **Pure.** Checks user per-request, account per-request, user monthly, account monthly; returns the list of broken rules. Empty = accepted. |
-| 10 | `repositories/usage.ts` `record` | One statement: insert the decision into `requests` (with a snapshot of limits and balances) and, only if accepted, add the units to `account_usage` and upsert `user_usage`. |
+| 9 | `domain/rules.ts` `evaluate` | **Pure.** Checks user per-request, account per-request, user daily, account daily, user monthly, account monthly; returns the list of broken rules. Empty = accepted. |
+| 10 | `repositories/usage.ts` `record` | One statement: insert the decision into `requests` (with a snapshot of limits and balances) and, only if accepted, add the units to the four counters (`account_usage`, `user_usage`, `account_daily_usage`, `user_daily_usage`). |
 | 11 | `withTx` | `COMMIT` releases the lock; the next waiting request proceeds. |
 | 12 | `http/routes/consume.ts` | The response is serialized through the zod response schema: `200 {accepted:false, rule:"max_per_request", level:"user", ...}`. |
 
@@ -57,7 +57,7 @@ Rejected request: steps 1-9 identical; in step 10 only the log row is inserted, 
 ## Live-change drills (practice these)
 | Change | Where | How |
 |---|---|---|
-| Add a **third rule** (e.g. max requests per minute) | `domain/rules.ts` | Add a rule name to `RuleName`, add one entry to the `checks` array in `evaluate` with its limit and test, add a column on `plans`, expose it in the plan schemas, add one `describe` message. The consume transaction does not change. |
+| Add **another rule** (a fourth) | `domain/rules.ts` | You have seen the recipe: the daily allowance is one ([ADR-007](decisions/ADR-007-daily-allowance.md)). Add a rule name, one entry in `ORDER`, a plan column (new migration) and, if it needs a running total, a counter table written in the `record` statement; expose it in the plan schemas and add a `describe` message. The lock and transaction do not change. |
 | Change **rule precedence** | `domain/rules.ts` | Reorder the `checks` array; update the truth-table test. |
 | Make a rejection a **4xx** | `http/routes/consume.ts` | Reply with a status when `!result.accepted`; update `docs/API.md` and tests. |
 | Add **`GET /plans` filter by kind** | `http/routes/plans.ts` | Add an optional `kind` to the querystring schema; filter in `services/plans.ts`. |
@@ -70,6 +70,7 @@ Rejected request: steps 1-9 identical; in step 10 only the log row is inserted, 
 |---|---|---|
 | API key auth, isolation | `http/auth.ts`, account-scoped repositories | `test/api.test.ts` |
 | Both plans apply together | `domain/rules.ts` | `test/rules.test.ts`, `test/consume.test.ts` |
+| The extra rule (daily allowance) | `domain/rules.ts`, `usage.record`, migration 004 | `test/rules.test.ts`, "daily allowance" tests in `consume.test.ts` and `usage.test.ts` |
 | Rejection consumes nothing | `usage.record` (`$6::boolean` guard) | "brief examples" tests |
 | Safe retries | `readContext` + `replay` | "safe retries" tests |
 | Concurrent correctness | `usage.lockAccount` | "concurrency" tests (two instances) |

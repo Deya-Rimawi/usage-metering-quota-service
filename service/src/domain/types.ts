@@ -6,6 +6,7 @@ export interface Plan {
   kind: PlanKind;
   name: string;
   monthlyAllowance: number | null;
+  dailyAllowance: number | null;
   maxPerRequest: number | null;
   predefined: boolean;
   createdAt: string;

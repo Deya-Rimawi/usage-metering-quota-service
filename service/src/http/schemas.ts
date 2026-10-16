@@ -10,6 +10,8 @@ export const text = (max: number) => z.string().min(1).max(max).regex(/^[^\u0000
 export const planIdSchema = z.string().regex(/^[A-Za-z0-9_.:-]{1,100}$/, 'Invalid plan id');
 export const requestIdSchema = text(200);
 
+export const ruleSchema = z.enum(['max_per_request', 'daily_allowance', 'monthly_allowance']);
+
 export const userIdSchema = z.string().regex(/^[A-Za-z0-9._:@-]{1,200}$/, 'Use 1-200 characters from A-Z a-z 0-9 . _ : @ -');
 export const allowanceSchema = z.number().int().min(1).max(MAX_ALLOWANCE).nullable();
 export const perRequestSchema = z.number().int().min(1).max(MAX_PER_REQUEST).nullable();
@@ -19,6 +21,7 @@ export const planSchema = z.object({
   kind: z.enum(['account', 'user']),
   name: z.string(),
   monthlyAllowance: allowanceSchema,
+  dailyAllowance: allowanceSchema,
   maxPerRequest: perRequestSchema,
   predefined: z.boolean(),
   createdAt: z.string(),
@@ -34,7 +37,7 @@ export const pageQuery = z.object({
 });
 
 export const violationSchema = z.object({
-  level: z.enum(['account', 'user']), rule: z.enum(['max_per_request', 'monthly_allowance']),
+  level: z.enum(['account', 'user']), rule: ruleSchema,
   limit: z.number(), requested: z.number(), remaining: z.number().nullable(),
 });
 
@@ -42,12 +45,14 @@ export const side = z.object({
   planId: z.string(), planName: z.string(),
   monthlyAllowance: z.number().nullable(), maxPerRequest: z.number().nullable(),
   used: z.number(), remaining: z.number().nullable(),
+  // The daily allowance (extra rule). `.default(null)`: decisions stored before the rule existed have no such fields.
+  dailyAllowance: z.number().nullable().default(null), usedToday: z.number().nullable().default(null), remainingToday: z.number().nullable().default(null),
 });
 
 export const consumeResponse = z.object({
   requestId: z.string(), userId: z.string(), units: z.number(), period: z.string(),
   accepted: z.boolean(),
-  rule: z.enum(['max_per_request', 'monthly_allowance']).nullable(),
+  rule: ruleSchema.nullable(),
   level: z.enum(['account', 'user']).nullable(),
   message: z.string(),
   violations: z.array(violationSchema),
@@ -67,7 +72,7 @@ export const userUsageResponse = z.object({
 
 export const historyItem = z.object({
   requestId: z.string(), userId: z.string(), units: z.number(), period: z.string(), accepted: z.boolean(),
-  rule: z.enum(['max_per_request', 'monthly_allowance']).nullable(), level: z.enum(['account', 'user']).nullable(),
+  rule: ruleSchema.nullable(), level: z.enum(['account', 'user']).nullable(),
   message: z.string(), violations: z.array(violationSchema),
   account: side, user: side, createdAt: z.string(),
 });

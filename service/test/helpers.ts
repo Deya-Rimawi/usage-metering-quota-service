@@ -59,8 +59,10 @@ export async function createAccount(app: FastifyInstance, name: string, planId =
 
 type Client = Pick<ReturnType<typeof client>, 'get' | 'post' | 'put' | 'patch'>;
 
-export async function newPlan(c: Client, kind: 'account' | 'user', name: string, monthlyAllowance: number | null, maxPerRequest: number | null): Promise<string> {
-  return (await c.post('/plans', { kind, name, monthlyAllowance, maxPerRequest })).json().id;
+export async function newPlan(
+  c: Client, kind: 'account' | 'user', name: string, monthlyAllowance: number | null, maxPerRequest: number | null, dailyAllowance: number | null = null,
+): Promise<string> {
+  return (await c.post('/plans', { kind, name, monthlyAllowance, maxPerRequest, dailyAllowance })).json().id;
 }
 
 export async function newUser(c: Client, userId: string, planId: string) {
@@ -73,9 +75,9 @@ export const consume = async (c: Client, userId: string, units: number, requestI
   (await c.post('/consume', { userId, units, requestId })).json();
 
 /**
- * Invariants I1, I2 and I5 from docs/CONCURRENCY.md, checked straight from the database:
- * every counter equals the sum of accepted units in the request log, the account total equals the sum of its users,
- * and no accepted decision left a balance above the allowance that applied to it.
+ * Invariants I1, I2 and I5 from docs/CONCURRENCY.md, checked straight from the database, for the monthly AND the
+ * daily counters: every counter equals the sum of accepted units in the request log, the account total equals the
+ * sum of its users, and no accepted decision left a balance above the allowance that applied to it.
  * Returns the offending rows (empty = healthy).
  */
 export async function brokenInvariants(pool: pg.Pool) {
@@ -106,5 +108,30 @@ export async function brokenInvariants(pool: pg.Pool) {
   const uncountedAcc = await pool.query(`
     SELECT r.account_id FROM (SELECT account_id, period FROM requests WHERE accepted GROUP BY 1, 2) r
     LEFT JOIN account_usage au USING (account_id, period) WHERE au.account_id IS NULL`);
-  return [...user.rows, ...account.rows, ...sums.rows, ...overspent.rows, ...uncounted.rows, ...uncountedAcc.rows];
+  // The daily allowance (extra rule) gets the same guarantees, per UTC day.
+  const userDay = await pool.query(`
+    SELECT ud.user_id FROM user_daily_usage ud
+    LEFT JOIN (SELECT user_id, day, sum(units) AS s FROM requests WHERE accepted GROUP BY 1, 2) r USING (user_id, day)
+    WHERE ud.units <> COALESCE(r.s, 0)`);
+  const accountDay = await pool.query(`
+    SELECT ad.account_id FROM account_daily_usage ad
+    LEFT JOIN (SELECT account_id, day, sum(units) AS s FROM requests WHERE accepted GROUP BY 1, 2) r USING (account_id, day)
+    WHERE ad.units <> COALESCE(r.s, 0)`);
+  const sumsDay = await pool.query(`
+    SELECT ad.account_id FROM account_daily_usage ad
+    WHERE ad.units <> (SELECT COALESCE(sum(ud.units), 0) FROM user_daily_usage ud JOIN users u ON u.id = ud.user_id
+                       WHERE u.account_id = ad.account_id AND ud.day = ad.day)`);
+  const overspentDay = await pool.query(`
+    SELECT request_id FROM requests WHERE accepted AND (
+      ((applied->'user'->>'dailyAllowance') IS NOT NULL
+        AND (applied->'user'->>'usedToday')::bigint > (applied->'user'->>'dailyAllowance')::bigint)
+      OR ((applied->'account'->>'dailyAllowance') IS NOT NULL
+        AND (applied->'account'->>'usedToday')::bigint > (applied->'account'->>'dailyAllowance')::bigint))`);
+  const uncountedDay = await pool.query(`
+    SELECT r.user_id FROM (SELECT user_id, day FROM requests WHERE accepted GROUP BY 1, 2) r
+    LEFT JOIN user_daily_usage ud USING (user_id, day) WHERE ud.user_id IS NULL`);
+  return [
+    ...user.rows, ...account.rows, ...sums.rows, ...overspent.rows, ...uncounted.rows, ...uncountedAcc.rows,
+    ...userDay.rows, ...accountDay.rows, ...sumsDay.rows, ...overspentDay.rows, ...uncountedDay.rows,
+  ];
 }

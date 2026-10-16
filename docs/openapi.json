@@ -126,6 +126,12 @@
                               "minimum": 1,
                               "maximum": 1000000000000
                             },
+                            "dailyAllowance": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1000000000000
+                            },
                             "maxPerRequest": {
                               "nullable": true,
                               "type": "integer",
@@ -147,6 +153,7 @@
                             "kind",
                             "name",
                             "monthlyAllowance",
+                            "dailyAllowance",
                             "maxPerRequest",
                             "predefined",
                             "createdAt",
@@ -270,6 +277,12 @@
                           "minimum": 1,
                           "maximum": 1000000000000
                         },
+                        "dailyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
                         "maxPerRequest": {
                           "nullable": true,
                           "type": "integer",
@@ -291,6 +304,7 @@
                         "kind",
                         "name",
                         "monthlyAllowance",
+                        "dailyAllowance",
                         "maxPerRequest",
                         "predefined",
                         "createdAt",
@@ -377,6 +391,12 @@
                           "minimum": 1,
                           "maximum": 1000000000000
                         },
+                        "dailyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
                         "maxPerRequest": {
                           "nullable": true,
                           "type": "integer",
@@ -398,6 +418,7 @@
                         "kind",
                         "name",
                         "monthlyAllowance",
+                        "dailyAllowance",
                         "maxPerRequest",
                         "predefined",
                         "createdAt",
@@ -515,6 +536,12 @@
                           "minimum": 1,
                           "maximum": 1000000000000
                         },
+                        "dailyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
                         "maxPerRequest": {
                           "nullable": true,
                           "type": "integer",
@@ -536,6 +563,7 @@
                         "kind",
                         "name",
                         "monthlyAllowance",
+                        "dailyAllowance",
                         "maxPerRequest",
                         "predefined",
                         "createdAt",
@@ -624,6 +652,12 @@
                                 "minimum": 1,
                                 "maximum": 1000000000000
                               },
+                              "dailyAllowance": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1000000000000
+                              },
                               "maxPerRequest": {
                                 "nullable": true,
                                 "type": "integer",
@@ -645,6 +679,7 @@
                               "kind",
                               "name",
                               "monthlyAllowance",
+                              "dailyAllowance",
                               "maxPerRequest",
                               "predefined",
                               "createdAt",
@@ -731,6 +766,12 @@
                           "minimum": 1,
                           "maximum": 1000000000000
                         },
+                        "dailyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
                         "maxPerRequest": {
                           "nullable": true,
                           "type": "integer",
@@ -752,6 +793,7 @@
                         "kind",
                         "name",
                         "monthlyAllowance",
+                        "dailyAllowance",
                         "maxPerRequest",
                         "predefined",
                         "createdAt",
@@ -845,6 +887,12 @@
                           "minimum": 1,
                           "maximum": 1000000000000
                         },
+                        "dailyAllowance": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000000000
+                        },
                         "maxPerRequest": {
                           "nullable": true,
                           "type": "integer",
@@ -866,6 +914,7 @@
                         "kind",
                         "name",
                         "monthlyAllowance",
+                        "dailyAllowance",
                         "maxPerRequest",
                         "predefined",
                         "createdAt",
@@ -928,6 +977,12 @@
                             "minimum": 1,
                             "maximum": 1000000000000
                           },
+                          "dailyAllowance": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000000000000
+                          },
                           "maxPerRequest": {
                             "nullable": true,
                             "type": "integer",
@@ -949,6 +1004,7 @@
                           "kind",
                           "name",
                           "monthlyAllowance",
+                          "dailyAllowance",
                           "maxPerRequest",
                           "predefined",
                           "createdAt",
@@ -1001,6 +1057,13 @@
                     "minimum": 1,
                     "maximum": 1000000000000
                   },
+                  "dailyAllowance": {
+                    "default": null,
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000000
+                  },
                   "maxPerRequest": {
                     "default": null,
                     "nullable": true,
@@ -1044,6 +1107,12 @@
                       "minimum": 1,
                       "maximum": 1000000000000
                     },
+                    "dailyAllowance": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000000
+                    },
                     "maxPerRequest": {
                       "nullable": true,
                       "type": "integer",
@@ -1065,6 +1134,7 @@
                     "kind",
                     "name",
                     "monthlyAllowance",
+                    "dailyAllowance",
                     "maxPerRequest",
                     "predefined",
                     "createdAt",
@@ -1122,6 +1192,12 @@
                       "minimum": 1,
                       "maximum": 1000000000000
                     },
+                    "dailyAllowance": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000000
+                    },
                     "maxPerRequest": {
                       "nullable": true,
                       "type": "integer",
@@ -1143,6 +1219,7 @@
                     "kind",
                     "name",
                     "monthlyAllowance",
+                    "dailyAllowance",
                     "maxPerRequest",
                     "predefined",
                     "createdAt",
@@ -1175,6 +1252,12 @@
                     "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
                   },
                   "monthlyAllowance": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000000
+                  },
+                  "dailyAllowance": {
                     "nullable": true,
                     "type": "integer",
                     "minimum": 1,
@@ -1229,6 +1312,12 @@
                       "minimum": 1,
                       "maximum": 1000000000000
                     },
+                    "dailyAllowance": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000000000
+                    },
                     "maxPerRequest": {
                       "nullable": true,
                       "type": "integer",
@@ -1250,6 +1339,7 @@
                     "kind",
                     "name",
                     "monthlyAllowance",
+                    "dailyAllowance",
                     "maxPerRequest",
                     "predefined",
                     "createdAt",
@@ -1330,6 +1420,7 @@
                       "type": "string",
                       "enum": [
                         "max_per_request",
+                        "daily_allowance",
                         "monthly_allowance"
                       ]
                     },
@@ -1360,6 +1451,7 @@
                             "type": "string",
                             "enum": [
                               "max_per_request",
+                              "daily_allowance",
                               "monthly_allowance"
                             ]
                           },
@@ -1407,6 +1499,21 @@
                         "remaining": {
                           "nullable": true,
                           "type": "number"
+                        },
+                        "dailyAllowance": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "usedToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "remainingToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -1415,7 +1522,10 @@
                         "monthlyAllowance",
                         "maxPerRequest",
                         "used",
-                        "remaining"
+                        "remaining",
+                        "dailyAllowance",
+                        "usedToday",
+                        "remainingToday"
                       ],
                       "additionalProperties": false
                     },
@@ -1442,6 +1552,21 @@
                         "remaining": {
                           "nullable": true,
                           "type": "number"
+                        },
+                        "dailyAllowance": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "usedToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "remainingToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -1450,7 +1575,10 @@
                         "monthlyAllowance",
                         "maxPerRequest",
                         "used",
-                        "remaining"
+                        "remaining",
+                        "dailyAllowance",
+                        "usedToday",
+                        "remainingToday"
                       ],
                       "additionalProperties": false
                     },
@@ -1554,6 +1682,21 @@
                         "remaining": {
                           "nullable": true,
                           "type": "number"
+                        },
+                        "dailyAllowance": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "usedToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "remainingToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -1562,7 +1705,10 @@
                         "monthlyAllowance",
                         "maxPerRequest",
                         "used",
-                        "remaining"
+                        "remaining",
+                        "dailyAllowance",
+                        "usedToday",
+                        "remainingToday"
                       ],
                       "additionalProperties": false
                     },
@@ -1592,6 +1738,21 @@
                             "nullable": true,
                             "type": "number"
                           },
+                          "dailyAllowance": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "usedToday": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "remainingToday": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "number"
+                          },
                           "userId": {
                             "type": "string"
                           }
@@ -1603,6 +1764,9 @@
                           "maxPerRequest",
                           "used",
                           "remaining",
+                          "dailyAllowance",
+                          "usedToday",
+                          "remainingToday",
                           "userId"
                         ],
                         "additionalProperties": false
@@ -1693,6 +1857,21 @@
                         "remaining": {
                           "nullable": true,
                           "type": "number"
+                        },
+                        "dailyAllowance": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "usedToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "remainingToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -1701,7 +1880,10 @@
                         "monthlyAllowance",
                         "maxPerRequest",
                         "used",
-                        "remaining"
+                        "remaining",
+                        "dailyAllowance",
+                        "usedToday",
+                        "remainingToday"
                       ],
                       "additionalProperties": false
                     },
@@ -1728,6 +1910,21 @@
                         "remaining": {
                           "nullable": true,
                           "type": "number"
+                        },
+                        "dailyAllowance": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "usedToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "remainingToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -1736,7 +1933,10 @@
                         "monthlyAllowance",
                         "maxPerRequest",
                         "used",
-                        "remaining"
+                        "remaining",
+                        "dailyAllowance",
+                        "usedToday",
+                        "remainingToday"
                       ],
                       "additionalProperties": false
                     }
@@ -1813,6 +2013,21 @@
                         "remaining": {
                           "nullable": true,
                           "type": "number"
+                        },
+                        "dailyAllowance": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "usedToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "remainingToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -1821,7 +2036,10 @@
                         "monthlyAllowance",
                         "maxPerRequest",
                         "used",
-                        "remaining"
+                        "remaining",
+                        "dailyAllowance",
+                        "usedToday",
+                        "remainingToday"
                       ],
                       "additionalProperties": false
                     },
@@ -1848,6 +2066,21 @@
                         "remaining": {
                           "nullable": true,
                           "type": "number"
+                        },
+                        "dailyAllowance": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "usedToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "remainingToday": {
+                          "default": null,
+                          "nullable": true,
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -1856,7 +2089,10 @@
                         "monthlyAllowance",
                         "maxPerRequest",
                         "used",
-                        "remaining"
+                        "remaining",
+                        "dailyAllowance",
+                        "usedToday",
+                        "remainingToday"
                       ],
                       "additionalProperties": false
                     }
@@ -1967,6 +2203,7 @@
                             "type": "string",
                             "enum": [
                               "max_per_request",
+                              "daily_allowance",
                               "monthly_allowance"
                             ]
                           },
@@ -1997,6 +2234,7 @@
                                   "type": "string",
                                   "enum": [
                                     "max_per_request",
+                                    "daily_allowance",
                                     "monthly_allowance"
                                   ]
                                 },
@@ -2044,6 +2282,21 @@
                               "remaining": {
                                 "nullable": true,
                                 "type": "number"
+                              },
+                              "dailyAllowance": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "usedToday": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "remainingToday": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "number"
                               }
                             },
                             "required": [
@@ -2052,7 +2305,10 @@
                               "monthlyAllowance",
                               "maxPerRequest",
                               "used",
-                              "remaining"
+                              "remaining",
+                              "dailyAllowance",
+                              "usedToday",
+                              "remainingToday"
                             ],
                             "additionalProperties": false
                           },
@@ -2079,6 +2335,21 @@
                               "remaining": {
                                 "nullable": true,
                                 "type": "number"
+                              },
+                              "dailyAllowance": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "usedToday": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "remainingToday": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "number"
                               }
                             },
                             "required": [
@@ -2087,7 +2358,10 @@
                               "monthlyAllowance",
                               "maxPerRequest",
                               "used",
-                              "remaining"
+                              "remaining",
+                              "dailyAllowance",
+                              "usedToday",
+                              "remainingToday"
                             ],
                             "additionalProperties": false
                           },

@@ -10,24 +10,29 @@ erDiagram
   ACCOUNTS ||--o{ USERS : has
   ACCOUNTS ||--o{ ACCOUNT_USAGE : "per UTC month"
   USERS ||--o{ USER_USAGE : "per UTC month"
+  ACCOUNTS ||--o{ ACCOUNT_DAILY_USAGE : "per UTC day"
+  USERS ||--o{ USER_DAILY_USAGE : "per UTC day"
   ACCOUNTS ||--o{ REQUESTS : makes
   USERS ||--o{ REQUESTS : "on behalf of"
-  PLANS { text id PK  uuid account_id "NULL = predefined"  text kind  bigint monthly_allowance "NULL = unlimited"  bigint max_per_request "NULL = unlimited" }
+  PLANS { text id PK  uuid account_id "NULL = predefined"  text kind  bigint monthly_allowance "NULL = unlimited"  bigint daily_allowance "NULL = unlimited"  bigint max_per_request "NULL = unlimited" }
   ACCOUNTS { uuid id PK  text api_key_hash UK  text plan_id FK }
   USERS { uuid id PK  uuid account_id FK  text external_id "caller's userId"  text plan_id FK }
   ACCOUNT_USAGE { uuid account_id PK  date period PK  bigint units }
   USER_USAGE { uuid user_id PK  date period PK  bigint units }
-  REQUESTS { uuid id PK  uuid account_id FK  text request_id "UNIQUE per account"  uuid user_id FK  bigint units  date period  boolean accepted  text rejected_rule  text rejected_level  jsonb violations  jsonb applied }
+  ACCOUNT_DAILY_USAGE { uuid account_id PK  date day PK  bigint units }
+  USER_DAILY_USAGE { uuid user_id PK  date day PK  bigint units }
+  REQUESTS { uuid id PK  uuid account_id FK  text request_id "UNIQUE per account"  uuid user_id FK  bigint units  date period  date day  boolean accepted  text rejected_rule  text rejected_level  jsonb violations  jsonb applied }
 ```
 
 ## Tables
 | Table | Role |
 |---|---|
-| `plans` | Rule sets. `account_id IS NULL` = predefined (read-only). `kind` is `account` or `user`. A `NULL` limit = unlimited. Plan edits are plain `UPDATE`s, so changes need no redeploy. |
+| `plans` | Rule sets (`monthly_allowance`, `daily_allowance`, `max_per_request`). `account_id IS NULL` = predefined (read-only). `kind` is `account` or `user`. A `NULL` limit = unlimited. Plan edits are plain `UPDATE`s, so changes need no redeploy. |
 | `accounts` | A calling application. Stores only `sha256(api_key)`. |
 | `users` | A user of an account. `(account_id, external_id)` is unique; `external_id` is the caller's own `userId`. |
 | `account_usage` / `user_usage` | Running totals, one row per owner per UTC month (`period` = first day of the month). **Not keyed by plan**, so a plan switch cannot reset usage. |
-| `requests` | Every decision: the idempotency record, the audit trail, and the source of truth the counters are checked against. `applied` snapshots the limits and balances used. A row is written with its final decision in one statement (`accepted` is `NOT NULL`, migration 002). |
+| `account_daily_usage` / `user_daily_usage` | The same for the **daily allowance** (the extra rule, [ADR-007](decisions/ADR-007-daily-allowance.md)): one row per owner per UTC day (`day`). Also not keyed by plan. |
+| `requests` | Every decision: the idempotency record, the audit trail, and the source of truth the counters are checked against. `applied` snapshots the limits and balances used; `day` is the UTC day the decision was charged to (so the daily counters can be re-derived from the log). A row is written with its final decision in one statement (`accepted` is `NOT NULL`, migration 002). |
 
 ## Constraints worth knowing
 | Constraint | What it guarantees |
@@ -45,6 +50,6 @@ erDiagram
 `requests (account_id, created_at DESC, id DESC)` serves the account's history and cursor pagination; `requests (user_id, created_at DESC, id DESC)` serves per-user history; the usage tables' primary keys serve every counter lookup and lock.
 
 ## Invariants (checked by tests from the DB)
-- **I1** every counter = sum of accepted units in `requests` for that owner and month
-- **I5** `account_usage` = sum of its users' `user_usage` for that month
+- **I1** every counter (monthly and daily) = sum of accepted units in `requests` for that owner and month / day
+- **I5** `account_usage` = sum of its users' `user_usage` for that month, and likewise per day
 (I2-I6 and how they hold: see [CONCURRENCY.md](CONCURRENCY.md).)

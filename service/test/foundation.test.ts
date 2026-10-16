@@ -13,12 +13,12 @@ afterAll(() => pool.end());
 
 describe('startup', () => {
   it('seeds the four predefined plans with the documented limits', async () => {
-    const { rows } = await pool.query('SELECT id, kind, monthly_allowance m, max_per_request r FROM plans WHERE account_id IS NULL ORDER BY id');
+    const { rows } = await pool.query('SELECT id, kind, monthly_allowance m, daily_allowance d, max_per_request r FROM plans WHERE account_id IS NULL ORDER BY id');
     expect(rows).toEqual([
-      { id: 'basic', kind: 'user', m: 500, r: 20 },
-      { id: 'premium', kind: 'user', m: 5000, r: 200 },
-      { id: 'pro', kind: 'account', m: 1_000_000, r: 1000 },
-      { id: 'starter', kind: 'account', m: 10_000, r: 100 },
+      { id: 'basic', kind: 'user', m: 500, d: 100, r: 20 },
+      { id: 'premium', kind: 'user', m: 5000, d: 1000, r: 200 },
+      { id: 'pro', kind: 'account', m: 1_000_000, d: 100_000, r: 1000 },
+      { id: 'starter', kind: 'account', m: 10_000, d: 2000, r: 100 },
     ]);
   });
 

@@ -17,16 +17,17 @@ Inside one database transaction, first take a **row lock** on the account's coun
 BEGIN
  1. SELECT units FROM account_usage WHERE (account, month) FOR UPDATE      <- THE lock
         (first request of a month: no row yet -> INSERT ... ON CONFLICT DO NOTHING, then lock it)
-        then re-read the clock: if the UTC month turned while we queued, lock and charge the NEW month
- 2. ONE read statement: the user + its usage this month, the account plan,
+        then re-read the clock: if the UTC month turned while we queued, lock and charge the NEW month;
+        the UTC day is taken from that same instant
+ 2. ONE read statement: the user + its usage this month AND today, the account plan,
         the user plan, and any earlier decision for this requestId
  3. in TypeScript: replay? unknown user? otherwise evaluate(units, user, account) -> violations
  4. ONE write statement:  INSERT the decision into requests (with a snapshot of limits/balances)
-        and, only if accepted, UPDATE account_usage and upsert user_usage
+        and, only if accepted, add the units to the four counters (account and user, month and day)
         (created_at = clock_timestamp(): stamped now, after the lock, so history order = decision order)
 COMMIT                                                                      <- lock released
 ```
-Five round trips including BEGIN and COMMIT.
+Five round trips including BEGIN and COMMIT. The daily allowance ([ADR-007](decisions/ADR-007-daily-allowance.md)) did not change this shape: it adds one more check to the pure function and two more counters to the same write statement, all under the same lock. The invariant stays valid because every writer of *any* counter, monthly or daily, holds the account's monthly row first (I6).
 
 ## Why each choice
 | Choice | Reason |
@@ -46,8 +47,8 @@ Five round trips including BEGIN and COMMIT.
 ## Invariants
 | | Invariant | How it is protected / verified |
 |---|---|---|
-| I1 | Each counter equals the sum of accepted units in the request log for that owner and month | Counters and the log row are written by one statement under the lock; `brokenInvariants()` in tests and `loadtest/verify.ts` recompute it from the database |
-| I2 | Accepted usage never exceeds the allowance in force at decision time | The decision is made on values read after taking the lock |
+| I1 | Each counter (monthly and daily) equals the sum of accepted units in the request log for that owner and month / day | Counters and the log row are written by one statement under the lock; `brokenInvariants()` in tests and `loadtest/verify.ts` recompute it from the database |
+| I2 | Accepted usage never exceeds the allowance in force at decision time (monthly and daily) | The decision is made on values read after taking the lock |
 | I3 | A rejection changes no counter | The counter updates are guarded by `$6::boolean` (accepted) in the same statement |
 | I4 | One `(account, requestId)` has exactly one decision, forever | Lookup under the lock + unique index + stored decision |
 | I5 | Account usage = sum of its users' usage for the month | Both are updated in one statement while the lock is held |

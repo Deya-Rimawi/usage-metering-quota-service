@@ -9,5 +9,8 @@ export function parsePeriod(s: string): string | null {
   return m ? `${m[1]}-${m[2]}-01` : null;
 }
 
+/** The UTC calendar day a daily allowance is counted in: '2026-10-16'. */
+export const dayOf = (d: Date): string => d.toISOString().slice(0, 10);
+
 /** '2026-10-01' -> '2026-10' */
 export const periodLabel = (p: string): string => p.slice(0, 7);

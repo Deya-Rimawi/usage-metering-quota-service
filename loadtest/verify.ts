@@ -10,7 +10,10 @@ export interface Verification {
   unitsUsed: number;
 }
 
-export async function verify(databaseUrl: string, accountIds: string[], { expectAccountUsed }: { expectAccountUsed?: number } = {}): Promise<Verification> {
+export async function verify(
+  databaseUrl: string, accountIds: string[],
+  { expectAccountUsed, expectAccountUsedToday }: { expectAccountUsed?: number; expectAccountUsedToday?: number } = {},
+): Promise<Verification> {
   pg.types.setTypeParser(20, Number);
   const db = new pg.Pool({ connectionString: databaseUrl, max: 2 });
   try {
@@ -48,12 +51,36 @@ export async function verify(databaseUrl: string, accountIds: string[], { expect
       LEFT JOIN account_usage au USING (account_id, period) WHERE au.account_id IS NULL`);
     if (uncounted.length) problems.push(`I1: ${uncounted.length} account-months have accepted requests but no counter`);
 
+    // The daily allowance gets the same guarantees as the monthly one, per UTC day.
+    const userDay = await q(`
+      SELECT ud.user_id FROM user_daily_usage ud JOIN users u ON u.id = ud.user_id
+      LEFT JOIN (SELECT user_id, day, sum(units) s FROM requests WHERE accepted GROUP BY 1, 2) r USING (user_id, day)
+      WHERE u.account_id = ANY($1) AND ud.units <> COALESCE(r.s, 0)`);
+    if (userDay.length) problems.push(`I1 (daily): ${userDay.length} user daily counters differ from the request log`);
+    const accountDay = await q(`
+      SELECT ad.account_id FROM account_daily_usage ad
+      LEFT JOIN (SELECT account_id, day, sum(units) s FROM requests WHERE accepted GROUP BY 1, 2) r USING (account_id, day)
+      WHERE ad.account_id = ANY($1) AND ad.units <> COALESCE(r.s, 0)`);
+    if (accountDay.length) problems.push(`I1 (daily): ${accountDay.length} account daily counters differ from the request log`);
+    const sumsDay = await q(`
+      SELECT ad.account_id FROM account_daily_usage ad
+      WHERE ad.account_id = ANY($1) AND ad.units <> (SELECT COALESCE(sum(ud.units), 0) FROM user_daily_usage ud JOIN users u ON u.id = ud.user_id
+                                                     WHERE u.account_id = ad.account_id AND ud.day = ad.day)`);
+    if (sumsDay.length) problems.push(`I5 (daily): ${sumsDay.length} account-days where account usage != sum of users`);
+    const overspentDay = await q(`
+      SELECT request_id FROM requests WHERE account_id = ANY($1) AND accepted AND (
+        ((applied->'user'->>'dailyAllowance') IS NOT NULL AND (applied->'user'->>'usedToday')::bigint > (applied->'user'->>'dailyAllowance')::bigint)
+        OR ((applied->'account'->>'dailyAllowance') IS NOT NULL AND (applied->'account'->>'usedToday')::bigint > (applied->'account'->>'dailyAllowance')::bigint))`);
+    if (overspentDay.length) problems.push(`I2 (daily): ${overspentDay.length} accepted decisions left a balance above their daily allowance`);
+
     const pending = await q(`SELECT 1 FROM requests WHERE account_id = ANY($1) AND accepted IS NULL`);
     if (pending.length) problems.push(`${pending.length} requests left without a decision`);
 
     const [{ total, accepted } = { total: 0, accepted: 0 }] = await q(`SELECT count(*)::int total, count(*) FILTER (WHERE accepted)::int accepted FROM requests WHERE account_id = ANY($1)`);
     const [{ used } = { used: 0 }] = await q(`SELECT COALESCE(sum(units), 0) used FROM account_usage WHERE account_id = ANY($1)`);
     if (expectAccountUsed !== undefined && Number(used) !== expectAccountUsed) problems.push(`expected exactly ${expectAccountUsed} units used, found ${used}`);
+    const [{ usedDaily } = { usedDaily: 0 }] = await q(`SELECT COALESCE(sum(units), 0) "usedDaily" FROM account_daily_usage WHERE account_id = ANY($1)`);
+    if (expectAccountUsedToday !== undefined && Number(usedDaily) !== expectAccountUsedToday) problems.push(`expected exactly ${expectAccountUsedToday} units used on the day, found ${usedDaily}`);
     return { ok: problems.length === 0, problems, loggedRequests: total, loggedAccepted: accepted, unitsUsed: Number(used) };
   } finally {
     await db.end();

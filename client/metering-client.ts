@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 
 // ---- Shapes of the service's responses (see docs/API.md) ----
-export type Rule = 'max_per_request' | 'monthly_allowance';
+export type Rule = 'max_per_request' | 'daily_allowance' | 'monthly_allowance';
 export type Level = 'account' | 'user';
 
 export interface SideReport {
@@ -13,6 +13,10 @@ export interface SideReport {
   maxPerRequest: number | null;
   used: number;
   remaining: number | null;
+  /** The daily allowance: the limit, units used on this UTC day, and units left today (null = no daily limit). */
+  dailyAllowance: number | null;
+  usedToday: number | null;
+  remainingToday: number | null;
 }
 
 export interface Violation {
@@ -43,6 +47,7 @@ export interface Plan {
   kind: 'account' | 'user';
   name: string;
   monthlyAllowance: number | null;
+  dailyAllowance: number | null;
   maxPerRequest: number | null;
   predefined: boolean;
 }
@@ -64,6 +69,7 @@ export interface HistoryItem extends Omit<Decision, 'replayed' | 'requestId'> {
 export interface PlanPatch {
   name?: string;
   monthlyAllowance?: number | null;
+  dailyAllowance?: number | null;
   maxPerRequest?: number | null;
 }
 

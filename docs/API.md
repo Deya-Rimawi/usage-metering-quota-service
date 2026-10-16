@@ -41,7 +41,7 @@ The key identifies the calling account. Every query is scoped to that account, s
 | `GET /users/{userId}` | One user and their plan |
 | `PUT /users/{userId}/plan` | `{planId}` change a user's plan |
 | `GET /plans` | Predefined plus your own plans |
-| `POST /plans` | `{kind, name, monthlyAllowance?, maxPerRequest?}` create a custom plan |
+| `POST /plans` | `{kind, name, monthlyAllowance?, dailyAllowance?, maxPerRequest?}` create a custom plan (omitted or `null` = unlimited) |
 | `GET /plans/{planId}` | One plan |
 | `PATCH /plans/{planId}` | Partial update of a custom plan; applies to the next request |
 | `POST /consume` | **Decide and record a consumption** |
@@ -66,14 +66,14 @@ Always HTTP 200 when a decision was made. Branch on `accepted`:
   "level": "user",
   "message": "The user's plan allows at most 20 units per request; 25 requested",
   "violations": [ { "level": "user", "rule": "max_per_request", "limit": 20, "requested": 25, "remaining": null } ],
-  "user":    { "planId": "basic",   "planName": "Basic",   "monthlyAllowance": 500,   "maxPerRequest": 20,  "used": 0, "remaining": 500 },
-  "account": { "planId": "starter", "planName": "Starter", "monthlyAllowance": 10000, "maxPerRequest": 100, "used": 0, "remaining": 10000 },
+  "user":    { "planId": "basic",   "planName": "Basic",   "monthlyAllowance": 500,   "dailyAllowance": 100,  "maxPerRequest": 20,  "used": 0, "remaining": 500, "usedToday": 0, "remainingToday": 100 },
+  "account": { "planId": "starter", "planName": "Starter", "monthlyAllowance": 10000, "dailyAllowance": 2000, "maxPerRequest": 100, "used": 0, "remaining": 10000, "usedToday": 0, "remainingToday": 2000 },
   "replayed": false
 }
 ```
-- `rule`: `max_per_request` or `monthly_allowance`. `level`: `account` or `user`. Both are `null` when accepted.
-- `violations` lists **every** broken rule; the first is the primary reason (order: user per-request, account per-request, user monthly, account monthly).
-- `user` / `account` show the plan applied and the balance **after** this decision.
+- `rule`: `max_per_request`, `daily_allowance` or `monthly_allowance`. `level`: `account` or `user`. Both are `null` when accepted.
+- `violations` lists **every** broken rule; the first is the primary reason (order: user per-request, account per-request, user daily, account daily, user monthly, account monthly).
+- `user` / `account` show the plan applied and the balance **after** this decision: month (`used`, `remaining`) and day (`usedToday`, `remainingToday`; `null` when the plan has no daily limit or for past months).
 - **Retries:** send the same `requestId`. You get the original decision again with `replayed: true`; nothing is counted twice. Use a new `requestId` for a new attempt. Reusing an id with a different user or amount returns 409.
 
 ## Typical flows

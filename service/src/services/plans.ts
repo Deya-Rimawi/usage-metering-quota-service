@@ -26,7 +26,7 @@ export async function getPlan(db: Db, accountId: string, planId: string): Promis
 
 export async function createPlan(
   pool: pg.Pool, accountId: string,
-  input: { kind: PlanKind; name: string; monthlyAllowance: number | null; maxPerRequest: number | null },
+  input: { kind: PlanKind; name: string; monthlyAllowance: number | null; dailyAllowance: number | null; maxPerRequest: number | null },
 ): Promise<Plan> {
   if ((await plans.countOwned(pool, accountId, MAX_CUSTOM_PLANS_PER_ACCOUNT)) >= MAX_CUSTOM_PLANS_PER_ACCOUNT) {
     throw forbidden('account_limit_reached', `An account may have at most ${MAX_CUSTOM_PLANS_PER_ACCOUNT} custom plans`);
@@ -42,7 +42,7 @@ export async function createPlan(
 /** Takes effect for the next consume: limits are read from this row on every request. */
 export async function updatePlan(
   pool: pg.Pool, accountId: string, planId: string,
-  patch: { name?: string; monthlyAllowance?: number | null; maxPerRequest?: number | null },
+  patch: { name?: string; monthlyAllowance?: number | null; dailyAllowance?: number | null; maxPerRequest?: number | null },
 ): Promise<Plan> {
   const existing = await getPlan(pool, accountId, planId); // 404 if not visible to this account
   if (existing.predefined) throw forbidden('predefined_plan_read_only', 'Predefined plans cannot be modified; create a custom plan instead');

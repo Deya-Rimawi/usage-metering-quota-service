@@ -3,9 +3,8 @@ import { conflict, notFound } from '../domain/errors';
 import { periodLabel, periodOf, type Clock } from '../domain/period';
 import { describe, evaluate, remainingUnits, type Level, type Limits, type RuleName, type Violation } from '../domain/rules';
 import { withTx } from '../repositories/db';
-import * as requests from '../repositories/requests';
+import type { Gate } from './accountGate';
 import * as usage from '../repositories/usage';
-import * as users from '../repositories/users';
 
 export interface SideReport {
   planId: string;
@@ -39,57 +38,58 @@ export const report = (planId: string, planName: string, limits: Limits, used: n
 /**
  * Decide and (if accepted) record a consumption, atomically. See docs/CONCURRENCY.md.
  *
- * One transaction, READ COMMITTED:
- *   1. claim (account, requestId)        -> duplicates stop here and replay the stored decision
- *   2. lock user counter, then account   -> fixed order everywhere, so no deadlocks; hot row last
- *   3. read the plans in force NOW       -> an edit committed before this point applies to this request
- *   4. evaluate (pure) -> add to both counters only if accepted
- *   5. store the decision + snapshot     -> commit
- * A rejection writes only the request row: counters are untouched.
+ * One transaction, READ COMMITTED, five round trips:
+ *   BEGIN
+ *   1. lock the account's counter row         -> all of this account's consumption queues here, in order
+ *   2. read user, usage, plans, earlier decision for this requestId   (a NEW statement: sees everything
+ *      the previous lock holder committed)
+ *   3. evaluate (pure)
+ *   4. one statement: log the decision + add units to both counters if accepted
+ *   COMMIT
+ * A retry (same requestId) finds the stored decision in step 2 and replays it. A rejection writes only
+ * the log row: counters are untouched.
  */
 export async function consume(
-  pool: pg.Pool, clock: Clock,
+  pool: pg.Pool, clock: Clock, gate: Gate,
   accountId: string, input: { userId: string; units: number; requestId: string },
 ): Promise<ConsumeResult> {
-  const user = await users.find(pool, accountId, input.userId);
-  if (!user) throw notFound('User'); // also covers users of other accounts
   const period = periodOf(clock());
 
-  return withTx(pool, async (tx) => {
-    const claimed = await requests.claim(tx, accountId, input.requestId, user.uid, input.units, period);
-    if (!claimed) return replay(tx, accountId, input);
-
-    await usage.ensure(tx, user.uid, accountId, period);
-    const userUsed = await usage.lockUser(tx, user.uid, period);
+  return gate(accountId, () => withTx(pool, async (tx) => {
     const accountUsed = await usage.lockAccount(tx, accountId, period);
-    const plans = await usage.currentLimits(tx, user.uid, accountId);
+    const ctx = await usage.readContext(tx, accountId, input.userId, input.requestId, period);
+
+    if (ctx.stored) return replay(ctx.stored, input);
+    if (!ctx.uid || !ctx.user) throw notFound('User'); // unknown here, which also covers other accounts' users
 
     const violations = evaluate(
       input.units,
-      { limits: plans.user.limits, used: userUsed },
-      { limits: plans.account.limits, used: accountUsed },
+      { limits: ctx.user.limits, used: ctx.userUsed },
+      { limits: ctx.account.limits, used: accountUsed },
     );
     const accepted = violations.length === 0;
-    if (accepted) await usage.add(tx, user.uid, accountId, period, input.units);
+    const added = accepted ? input.units : 0;
 
     const applied = {
-      account: report(plans.account.planId, plans.account.planName, plans.account.limits, accountUsed + (accepted ? input.units : 0)),
-      user: report(plans.user.planId, plans.user.planName, plans.user.limits, userUsed + (accepted ? input.units : 0)),
+      account: report(ctx.account.planId, ctx.account.planName, ctx.account.limits, accountUsed + added),
+      user: report(ctx.user.planId, ctx.user.planName, ctx.user.limits, ctx.userUsed + added),
     };
-    await requests.finalize(tx, claimed, { accepted, rule: violations[0]?.rule, level: violations[0]?.level, violations, applied });
+    await usage.record(tx, {
+      accountId, uid: ctx.uid, requestId: input.requestId, units: input.units, period, accepted,
+      rule: violations[0]?.rule, level: violations[0]?.level, violations, applied,
+    });
 
     return result({ ...input, period, accepted, violations, applied }, false);
-  });
+  }));
 }
 
 /** A retry gets the original decision back, unchanged, and never counts twice. */
-async function replay(tx: pg.PoolClient, accountId: string, input: { userId: string; units: number; requestId: string }) {
-  const s = await requests.findStored(tx, accountId, input.requestId);
+function replay(s: NonNullable<Awaited<ReturnType<typeof usage.readContext>>['stored']>, input: { userId: string; units: number; requestId: string }) {
   if (s.userId !== input.userId || s.units !== input.units) {
     throw conflict('idempotency_conflict', `requestId '${input.requestId}' was already used with a different user or amount`);
   }
   return result(
-    { requestId: input.requestId, userId: s.userId, units: s.units, period: s.period, accepted: s.accepted, violations: s.violations ?? [], applied: s.applied },
+    { requestId: input.requestId, userId: s.userId, units: s.units, period: s.period, accepted: s.accepted, violations: s.violations, applied: s.applied },
     true,
   );
 }

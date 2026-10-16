@@ -54,7 +54,7 @@ export async function createAccount(app: FastifyInstance, name: string, planId =
   return { id: body.account.id as string, key: body.apiKey as string, res };
 }
 
-type Client = ReturnType<typeof client>;
+type Client = Pick<ReturnType<typeof client>, 'get' | 'post' | 'put' | 'patch'>;
 
 export async function newPlan(c: Client, kind: 'account' | 'user', name: string, monthlyAllowance: number | null, maxPerRequest: number | null): Promise<string> {
   return (await c.post('/plans', { kind, name, monthlyAllowance, maxPerRequest })).json().id;

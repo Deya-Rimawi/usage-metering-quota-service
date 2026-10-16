@@ -19,6 +19,8 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-metering}@db:5432/metering
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+      PG_POOL_MAX: ${PG_POOL_MAX:-20}
+      ACCOUNT_CONCURRENCY: ${ACCOUNT_CONCURRENCY:-1}
     depends_on:
       db:
         condition: service_healthy
@@ -49,6 +51,20 @@ services:
     environment:
       SERVICE_URL: http://service:3000
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+    depends_on:
+      service:
+        condition: service_healthy
+
+  # Load tests:  docker compose --profile tools run --rm loadtest all --label mytest
+  loadtest:
+    build: ./loadtest
+    profiles: ["tools"]
+    environment:
+      SERVICE_URL: http://service:3000
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-metering}@db:5432/metering
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+    volumes:
+      - ./loadtest/results:/app/results
     depends_on:
       service:
         condition: service_healthy

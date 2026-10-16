@@ -1,59 +1,68 @@
 # Concurrency and correctness of `POST /consume`
 
 Code: [`service/src/services/consume.ts`](../service/src/services/consume.ts) (orchestration),
-[`domain/rules.ts`](../service/src/domain/rules.ts) (decision), `repositories/usage.ts` + `requests.ts` (SQL).
+[`domain/rules.ts`](../service/src/domain/rules.ts) (decision), `repositories/usage.ts` (all the SQL on this path),
+[`services/accountGate.ts`](../service/src/services/accountGate.ts) (performance guard).
+Background: [LEARNING.md](LEARNING.md) sections 1-6. Why this shape: [ADR-005](decisions/ADR-005-lock-first-consume.md), [ADR-006](decisions/ADR-006-per-account-gate.md).
 
 ## The problem
-Many requests for the same user/account arrive at once. Each must check "is there enough left?" and then add to the total. If two requests both read `used = 95`, both see room for 5, and both add 5, the allowance is overspent. This is the classic *lost update / check-then-act race*.
+Many requests for the same account arrive at once. Each must check "is there enough left?" and then add to the totals. If two requests both read `used = 95`, both see room for 5, and both add 5, the allowance is overspent: a *check-then-act race*.
 
 ## The solution in one sentence
-Inside one database transaction, take a **row lock** on the user's counter and the account's counter, read them, decide, write, commit. A second request wanting the same row **waits** until the first commits, then reads the fresh value.
+Inside one database transaction, first take a **row lock** on the account's counter for the month, then read everything the decision needs, decide, write, commit. A concurrent request for the same account **waits** for the lock, then reads the fresh state.
 
 ## Step by step (READ COMMITTED)
 ```
-0. find the user by (account, userId)          not found -> 404, nothing written
+(in process)  gate: wait until fewer than ACCOUNT_CONCURRENCY (=1) consumes of this account are running here
 BEGIN
-1. INSERT request (account, requestId) ON CONFLICT DO NOTHING
-     inserted?  -> we own this requestId, continue
-     conflict?  -> a duplicate: wait for the first transaction, then replay its stored decision
-2. ensure counter rows exist for this UTC month (INSERT ... ON CONFLICT DO NOTHING)
-3. SELECT ... FOR UPDATE  user_usage            <- lock #1
-4. SELECT ... FOR UPDATE  account_usage         <- lock #2 (the shared, contended one: taken LAST)
-5. read the plans in force now (accounts -> plan, users -> plan)
-6. evaluate(units, user, account)               pure function, no I/O
-7. accepted? UPDATE both counters += units      rejected? counters untouched
-8. UPDATE the request row: decision + snapshot of limits and balances
-COMMIT                                          locks released
+ 1. SELECT units FROM account_usage WHERE (account, month) FOR UPDATE      <- THE lock
+        (first request of a month: no row yet -> INSERT ... ON CONFLICT DO NOTHING, then lock it)
+ 2. ONE read statement: the user + its usage this month, the account plan,
+        the user plan, and any earlier decision for this requestId
+ 3. in TypeScript: replay? unknown user? otherwise evaluate(units, user, account) -> violations
+ 4. ONE write statement:  INSERT the decision into requests (with a snapshot of limits/balances)
+        and, only if accepted, UPDATE account_usage and upsert user_usage
+COMMIT                                                                      <- lock released
 ```
+Five round trips including BEGIN and COMMIT.
 
 ## Why each choice
 | Choice | Reason |
 |---|---|
-| Row locks (`FOR UPDATE`) instead of SERIALIZABLE | Serializable aborts conflicting transactions and needs retry loops; with a hot row that means abort storms. Locks just queue, which is exactly what we want. |
-| Always lock **user, then account** | If one request locked A then B while another locked B then A, they would deadlock. A single global order makes cycles impossible. Different users share only the account lock, which is always second. |
-| Account lock taken last | Everyone for an account queues on it; locking it last keeps the time it is held as short as possible (only steps 4-8). |
-| Plans read **after** the locks (step 5) | A plan edit committed while we waited applies to this request. A request never decides on limits that were already replaced before it got its turn. |
-| Counters keyed by `(owner, month)`, not plan | Switching plans cannot reset usage. |
-| Idempotency claim first (step 1) | The unique index `(account_id, request_id)` makes duplicates serialize on the index, before any counter lock is taken. Two simultaneous copies of a request cannot both pass. |
-| Decision stored with a snapshot | A retry returns the identical answer, and history keeps the limits that applied at the time even after plans change. |
+| **One lock** on the account counter | Every writer of any counter (the account's or a user's) is a consume, and every consume takes this lock first. So it already serializes all of an account's users; a second, user-level lock adds nothing and creates lock-ordering/deadlock questions. |
+| **Lock in its own statement, reads in the next** | A statement sees the snapshot from when *it started*. If the reads shared the statement that waits for the lock, they could miss rows the previous lock holder just committed (only the locked row itself is re-read). A fresh statement after the lock sees them all. |
+| **Idempotency lookup under the lock** | Two requests with the same `requestId` belong to the same account, so they serialize on the same lock. The second finds the first's committed decision in step 2 and replays it. The `UNIQUE (account_id, request_id)` index is a backstop. |
+| **Locks, not SERIALIZABLE** | Serializable aborts conflicting transactions and needs retry loops (abort storms on a hot row). Locks just queue. |
+| **Counters keyed by (owner, month), not plan** | Switching plans cannot reset usage. |
+| **Decision + snapshot stored** | A retry returns the identical answer; history keeps the limits that applied at the time, even after plans change. |
+| **Rule evaluation is a pure function** | Testable with a truth table; the one file to read to understand a decision. |
+| **Prepared (named) statements** | Planning one of these queries cost more than running it (4.3 ms vs 0.26 ms), and it would happen while holding the lock. |
+| **Per-account gate** | Keeps a hot account's waiting in memory instead of in the connection pool, so it cannot starve other tenants. It is a performance guard only. |
 
 ## Invariants
 | | Invariant | How it is protected / verified |
 |---|---|---|
-| I1 | Each counter equals the sum of accepted units in the request log for that owner and month | Counters and the log row are written in the same transaction; `brokenInvariants()` in tests checks it from the DB after concurrent runs |
-| I2 | Accepted usage never exceeds the allowance in force at decision time | Row locks + decision on the locked value |
-| I3 | A rejection changes no counter | `add` is only called when `violations` is empty |
-| I4 | One `(account, requestId)` has exactly one decision, forever | Unique index + stored decision |
-| I5 | Account usage = sum of its users' usage for the month | Both counters are updated in one statement while both locks are held |
+| I1 | Each counter equals the sum of accepted units in the request log for that owner and month | Counters and the log row are written by one statement under the lock; `brokenInvariants()` in tests and `loadtest/verify.mjs` recompute it from the database |
+| I2 | Accepted usage never exceeds the allowance in force at decision time | The decision is made on values read after taking the lock |
+| I3 | A rejection changes no counter | The counter updates are guarded by `$6::boolean` (accepted) in the same statement |
+| I4 | One `(account, requestId)` has exactly one decision, forever | Lookup under the lock + unique index + stored decision |
+| I5 | Account usage = sum of its users' usage for the month | Both are updated in one statement while the lock is held |
+| I6 | **Any code that writes a usage counter must hold the account's counter lock first** | `lockAccount()` is the single entry point; this is the rule future changes must keep |
 
-Proof the tests are real: removing `FOR UPDATE` from `usage.ts` makes the two parallel-allowance tests fail (the allowance is overspent).
+## What the tests prove
+- `test/consume.test.ts` "concurrency": 200 parallel requests against a 100-unit allowance give exactly 100 accepted; 300 requests from 10 users racing for a shared 120 give exactly 60 accepted; 20 simultaneous duplicates give one decision; plan edits during a burst keep the counters consistent.
+- They alternate requests between **two app instances** (two gates, one database), so the in-process gate cannot be what makes them pass.
+- **They fail if `FOR UPDATE` is removed** (checked by hand: both allowance tests overspend). That is the proof they test the lock and not luck.
+- `loadtest/` re-verifies I1 and I5 from the database after every run (about 1.2 million requests, zero violations).
 
 ## Failure modes
-- **Crash or error mid-transaction:** Postgres rolls everything back, including the claimed request row. The client retries with the same `requestId` and gets a fresh decision. No half-counted state exists.
+- **Crash or error mid-transaction:** Postgres rolls everything back, including the log row. The client retries with the same `requestId` and gets a fresh decision. No half-counted state exists.
 - **Client times out but the server committed:** the retry replays the stored decision (`replayed: true`) and does not count again.
-- **Duplicate arrives while the first is in flight:** it blocks on the unique index, then replays after the first commits. If the first rolled back, the duplicate proceeds as the real one.
-- **Plan edited during a request:** the request sees the old or the new limits, never a mix, because the plan is read once at step 5. The new limits apply to every request that reaches step 5 after the edit commits.
-- **Reduced allowance below usage:** `remaining = max(0, allowance - used)`, so it shows 0 and `used + units > allowance` rejects until the allowance rises or the month rolls over.
+- **Duplicate arrives while the first is in flight:** it waits on the account lock, then replays. If the first rolled back, the duplicate proceeds as the real request.
+- **Plan edited during a request:** the request sees the old or the new limits, never a mix, because plans are read once in step 2. Any request whose step 2 starts after the edit commits sees the new limits.
+- **Allowance reduced below usage:** `remaining = max(0, allowance - used)`, and `used + units > allowance` rejects until the allowance rises or the month rolls over.
+- **Many service instances:** correct, because correctness is in the database lock. Each instance has its own gate (a performance guard).
+- **Hot account:** requests queue (in the gate, then on the lock) in arrival order; none is lost.
 
 ## Known limit
-All consumes for **one account** serialize on its counter row, so one account's throughput is bounded by how fast the transaction commits. Different accounts do not interact. Measured in [PERFORMANCE.md](PERFORMANCE.md) (Day 6). Upgrade path: sharded counters or a single-statement version (see ADR-004).
+All consumes for **one account** serialize, so one account is bounded by how long a transaction holds the lock (about 4 ms, of which roughly 60% is the commit's disk flush). Different accounts do not interact. Numbers and the upgrade path (batching decisions to share one flush, or sharded counters) are in [PERFORMANCE.md](PERFORMANCE.md) and [LIMITATIONS.md](LIMITATIONS.md).

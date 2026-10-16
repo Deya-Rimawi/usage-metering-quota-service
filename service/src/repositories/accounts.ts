@@ -12,7 +12,11 @@ export async function insert(db: Db, name: string, keyHash: string, planId: stri
 }
 
 export async function findByKeyHash(db: Db, keyHash: string): Promise<AccountRow | null> {
-  const { rows } = await db.query('SELECT id, name, plan_id, created_at FROM accounts WHERE api_key_hash = $1', [keyHash]);
+  const { rows } = await db.query({
+    name: 'account_by_key_hash', // runs on every authenticated request
+    text: 'SELECT id, name, plan_id, created_at FROM accounts WHERE api_key_hash = $1',
+    values: [keyHash],
+  });
   return rows[0] ? map(rows[0]) : null;
 }
 

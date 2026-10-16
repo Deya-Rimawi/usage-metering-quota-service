@@ -1,0 +1,26 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_PASSWORD: metering, POSTGRES_DB: metering }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: service/package-lock.json }
+      - run: npm ci
+        working-directory: service
+      - run: npm run check          # typecheck + unit + integration + concurrency tests
+        working-directory: service
+      - name: Full stack boots and the demo scenario passes
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait
+          docker compose --profile tools run --rm e2e

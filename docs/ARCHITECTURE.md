@@ -37,18 +37,17 @@ sequenceDiagram
   H->>DB: look up account by sha256(key)
   H->>H: validate body (zod)
   H->>S: consume(accountId, userId, units, requestId)
-  S->>DB: find user in this account (else 404)
-  S->>DB: BEGIN; claim (account, requestId)
-  alt duplicate requestId
-    S->>DB: load stored decision
-    S-->>H: replayed result (same answer)
+  S->>S: per-account gate (wait in memory, not in the pool)
+  S->>DB: BEGIN; lock the account's counter row for the month
+  S->>DB: read user, usage, both plans, earlier decision for this requestId
+  alt earlier decision exists (a retry)
+    S-->>H: replayed result (same answer) or 409 if the payload differs
+  else unknown user
+    S-->>H: 404
   else first time
-    S->>DB: ensure + lock user counter, then account counter
-    S->>DB: read plans in force now
     S->>D: evaluate(units, user, account)
     D-->>S: violations (empty = accepted)
-    S->>DB: if accepted add units to both counters
-    S->>DB: store decision + snapshot; COMMIT
+    S->>DB: one statement: log the decision (+ add units to both counters if accepted); COMMIT
     S-->>H: result
   end
   H-->>C: 200 {accepted, rule, level, remaining...}
@@ -63,7 +62,7 @@ service/src
   db/                pool.ts  migrate.ts  seed.ts  sql/001_init.sql
   domain/            rules.ts  period.ts  errors.ts  types.ts
   repositories/      accounts users plans usage requests  (+ db.ts: withTx)
-  services/          accounts users plans consume usage apiKeys
+  services/          accounts users plans consume usage apiKeys accountGate
   http/              app.ts auth.ts errors.ts pagination.ts schemas.ts routes/*
 service/test         unit (rules), integration (real Postgres), concurrency
 docs/                this documentation set

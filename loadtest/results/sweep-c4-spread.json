@@ -1,0 +1,100 @@
+{
+  "label": "sweep-c4-spread",
+  "duration": 10,
+  "connections": 64,
+  "runs": 3,
+  "when": "2026-10-16T15:19:57.998Z",
+  "summary": [
+    {
+      "scenario": "spread",
+      "runs": [
+        {
+          "scenario": "spread",
+          "rps": 1559,
+          "p50": 35,
+          "p97_5": 89,
+          "p99": 105,
+          "max": 212,
+          "total": 15593,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 15593,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 15644,
+          "waits": {
+            "Client:ClientRead": 7.51,
+            "active": 0.98,
+            "idle in transaction": 0.26,
+            "IO:WALSync": 0.93,
+            "LWLock:WALWrite": 5.1
+          }
+        },
+        {
+          "scenario": "spread",
+          "rps": 1644,
+          "p50": 32,
+          "p97_5": 82,
+          "p99": 97,
+          "max": 163,
+          "total": 16441,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 16441,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 16490,
+          "waits": {
+            "Client:ClientRead": 6.92,
+            "IO:WALSync": 0.94,
+            "LWLock:WALWrite": 5.85,
+            "active": 1.06,
+            "idle in transaction": 0.32,
+            "IO:WALInitSync": 0.01,
+            "IO:DataFileExtend": 0.01,
+            "IO:WALInitWrite": 0.01
+          }
+        },
+        {
+          "scenario": "spread",
+          "rps": 1623,
+          "p50": 34,
+          "p97_5": 82,
+          "p99": 96,
+          "max": 180,
+          "total": 16228,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 16228,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 16282,
+          "waits": {
+            "Client:ClientRead": 6.81,
+            "IO:WALSync": 0.96,
+            "LWLock:WALWrite": 6.02,
+            "idle in transaction": 0.39,
+            "active": 1.08,
+            "IO:WALWrite": 0.01,
+            "Timeout:VacuumDelay": 0.07,
+            "IO:DataFileRead": 0.01
+          }
+        }
+      ],
+      "rps": 1623,
+      "p50": 34,
+      "p99": 97,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

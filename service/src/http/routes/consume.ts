@@ -3,10 +3,11 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import type pg from 'pg';
 import { z } from 'zod';
 import type { Clock } from '../../domain/period';
+import type { Gate } from '../../services/accountGate';
 import { consume } from '../../services/consume';
 import { consumeResponse, MAX_PER_REQUEST, userIdSchema } from '../schemas';
 
-export function consumeRoutes(app: FastifyInstance, pool: pg.Pool, clock: Clock) {
+export function consumeRoutes(app: FastifyInstance, pool: pg.Pool, clock: Clock, gate: Gate) {
   // A rejection is a normal business outcome, so it is HTTP 200 with accepted:false.
   app.withTypeProvider<ZodTypeProvider>().post(
     '/consume',
@@ -22,6 +23,6 @@ export function consumeRoutes(app: FastifyInstance, pool: pg.Pool, clock: Clock)
         response: { 200: consumeResponse },
       },
     },
-    (req) => consume(pool, clock, req.account.id, req.body),
+    (req) => consume(pool, clock, gate, req.account.id, req.body),
   );
 }

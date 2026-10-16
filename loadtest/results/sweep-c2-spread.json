@@ -1,0 +1,100 @@
+{
+  "label": "sweep-c2-spread",
+  "duration": 10,
+  "connections": 64,
+  "runs": 3,
+  "when": "2026-10-16T15:18:07.309Z",
+  "summary": [
+    {
+      "scenario": "spread",
+      "runs": [
+        {
+          "scenario": "spread",
+          "rps": 1598,
+          "p50": 34,
+          "p97_5": 88,
+          "p99": 104,
+          "max": 203,
+          "total": 15981,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 15981,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 16031,
+          "waits": {
+            "Client:ClientRead": 7.08,
+            "IO:WALSync": 0.95,
+            "LWLock:WALWrite": 6.05,
+            "active": 0.96,
+            "idle in transaction": 0.29,
+            "IO:DataFileRead": 0.01,
+            "IO:WALWrite": 0.01
+          }
+        },
+        {
+          "scenario": "spread",
+          "rps": 1667,
+          "p50": 32,
+          "p97_5": 83,
+          "p99": 97,
+          "max": 202,
+          "total": 18336,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 18336,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 18392,
+          "waits": {
+            "Client:ClientRead": 7.65,
+            "IO:WALSync": 0.9,
+            "LWLock:WALWrite": 4.86,
+            "idle in transaction": 0.33,
+            "active": 1.18,
+            "IO:WALWrite": 0.02,
+            "Timeout:VacuumDelay": 0.28
+          }
+        },
+        {
+          "scenario": "spread",
+          "rps": 1633,
+          "p50": 33,
+          "p97_5": 82,
+          "p99": 96,
+          "max": 173,
+          "total": 16330,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 16330,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 16384,
+          "waits": {
+            "Client:ClientRead": 7.17,
+            "IO:WALSync": 0.91,
+            "LWLock:WALWrite": 5.41,
+            "IO:WALWrite": 0.01,
+            "active": 1.23,
+            "idle in transaction": 0.31,
+            "IO:WALInitWrite": 0.01
+          }
+        }
+      ],
+      "rps": 1633,
+      "p50": 33,
+      "p99": 97,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

@@ -4,7 +4,7 @@
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-  "onCreateCommand": "cp -n .env.example .env; npm ci --prefix service && npm ci --prefix client && npm ci --prefix loadtest",
+  "onCreateCommand": "[ -f .env ] || cp .env.example .env; npm ci --prefix service && npm ci --prefix client && npm ci --prefix loadtest",
   "postStartCommand": "docker compose up -d --build",
   "forwardPorts": [3000, 8080],
   "portsAttributes": {

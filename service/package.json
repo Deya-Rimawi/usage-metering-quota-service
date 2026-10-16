@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "build": "tsc -p tsconfig.build.json && node scripts/copy-sql.mjs",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-sql.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

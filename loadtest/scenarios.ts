@@ -1,27 +1,49 @@
 // Each scenario: how to seed data, what requests to fire, and what to check afterwards.
 // Units are 1 unless stated. `pick(n)` is a cheap random index.
-import { patchPlan, seed } from './lib.mjs';
+import type autocannon from 'autocannon';
+import { patchPlan, seed, type SeededAccount } from './lib.ts';
 
-const pick = (n) => Math.floor(Math.random() * n);
-const consumeBody = (user, units, requestId) => JSON.stringify({ userId: user, units, requestId });
+type LoadRequest = autocannon.Request;
+
+/** What a scenario hands to the runner. */
+export interface Prepared {
+  accounts: SeededAccount[];               // verified afterwards (and reported)
+  requests: LoadRequest[];                 // what autocannon fires
+  expectAccountUsed?: number;              // exact total the accepted usage must reach
+  expectDuplicates?: boolean;              // the run must contain replayed requests
+  background?: { accounts: SeededAccount[]; requests: LoadRequest[]; connections: number }; // a noisy neighbour
+  start?: () => void;                      // side activity during the run (e.g. plan edits)
+  stop?: () => void;
+}
+
+export interface Scenario {
+  about: string;
+  prepare: () => Promise<Prepared>;
+}
+
+const pick = (n: number) => Math.floor(Math.random() * n);
+const consumeBody = (user: string, units: number, requestId: string) => JSON.stringify({ userId: user, units, requestId });
 
 /** Builds an autocannon request that consumes for a random account/user. `idFor(n)` maps the call counter to a requestId. */
-function consumeRequest(accounts, { units = 1, idFor, weight = 1 } = {}) {
+function consumeRequest(
+  accounts: SeededAccount[],
+  { units = 1, idFor, weight = 1 }: { units?: number; idFor?: (run: string, n: number) => string; weight?: number } = {},
+): LoadRequest[] {
   let n = 0;
   const run = Math.random().toString(36).slice(2, 8);
   return Array.from({ length: weight }, () => ({
     method: 'POST',
     path: '/consume',
     headers: { 'content-type': 'application/json' },
-    setupRequest(req) {
-      const a = accounts[pick(accounts.length)];
+    setupRequest(req: LoadRequest) {
+      const a = accounts[pick(accounts.length)]!;
       const id = idFor ? idFor(run, n++) : `${run}-${n++}`;
-      return { ...req, headers: { ...req.headers, 'x-api-key': a.key }, body: consumeBody(a.users[pick(a.users.length)], units, id) };
+      return { ...req, headers: { ...req.headers, 'x-api-key': a.key }, body: consumeBody(a.users[pick(a.users.length)]!, units, id) };
     },
   }));
 }
 
-export const scenarios = {
+export const scenarios: Record<string, Scenario> = {
   spread: {
     about: '50 accounts x 20 users, nothing ever rejected. Measures raw throughput when accounts do not contend.',
     async prepare() {
@@ -51,12 +73,12 @@ export const scenarios = {
       // therefore reused only with the same (account, user, units) by deriving the target from the id itself.
       const run = Math.random().toString(36).slice(2, 8);
       let n = 0;
-      const requests = [{
+      const requests: LoadRequest[] = [{
         method: 'POST', path: '/consume', headers: { 'content-type': 'application/json' },
-        setupRequest(req) {
+        setupRequest(req: LoadRequest) {
           const k = Math.floor(n++ / 2); // calls 2k and 2k+1 are the same logical request
-          const a = accounts[k % accounts.length];
-          const user = a.users[(k * 7) % a.users.length];
+          const a = accounts[k % accounts.length]!;
+          const user = a.users[(k * 7) % a.users.length]!;
           return { ...req, headers: { ...req.headers, 'x-api-key': a.key }, body: consumeBody(user, 1, `${run}-${k}`) };
         },
       }];
@@ -67,7 +89,7 @@ export const scenarios = {
     about: 'Quiet tenants (reported) share the service with one hot account hammering it with 48 connections. Does the hot tenant slow everyone else?',
     async prepare() {
       const quiet = await seed({ accounts: 20, users: 10 });
-      const [hot] = await seed({ accounts: 1, users: 200 });
+      const hot = (await seed({ accounts: 1, users: 200 }))[0]!;
       return {
         accounts: quiet, // only the quiet tenants' numbers are reported
         requests: consumeRequest(quiet),
@@ -79,8 +101,8 @@ export const scenarios = {
     about: '1 account, 50 users; the user plan is edited every 50 ms during the run. Counters must stay consistent.',
     async prepare() {
       const accounts = await seed({ accounts: 1, users: 50, userLimits: { monthlyAllowance: 1_000_000 } });
-      const [a] = accounts;
-      let timer;
+      const a = accounts[0]!;
+      let timer: ReturnType<typeof setInterval>;
       return {
         accounts,
         requests: consumeRequest(accounts),
@@ -93,13 +115,13 @@ export const scenarios = {
     about: '1 hot account: 70% consume, 10% each of /usage, /requests, /users/{id}/limits. Reads must not stall writes.',
     async prepare() {
       const accounts = await seed({ accounts: 1, users: 100 });
-      const [a] = accounts;
-      const get = (path) => ({ method: 'GET', path, headers: { 'x-api-key': a.key } });
-      const requests = [
+      const a = accounts[0]!;
+      const get = (path: string): LoadRequest => ({ method: 'GET', path, headers: { 'x-api-key': a.key } });
+      const requests: LoadRequest[] = [
         ...consumeRequest(accounts, { weight: 7 }),
         get('/usage?limit=20'),
         get('/requests?limit=20'),
-        { method: 'GET', path: '/users/u1/limits', headers: { 'x-api-key': a.key } },
+        get('/users/u1/limits'),
       ];
       return { accounts, requests };
     },

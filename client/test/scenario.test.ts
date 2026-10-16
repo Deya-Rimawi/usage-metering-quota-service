@@ -1,7 +1,7 @@
 // End-to-end: runs the demo scenario against a live metering service (docker compose up -d first).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { runScenario, setupDemo, waitForService } from '../demo.mjs';
+import { runScenario, setupDemo, waitForService } from '../demo.ts';
 
 const url = process.env.SERVICE_URL ?? 'http://localhost:3000';
 const admin = process.env.ADMIN_TOKEN ?? 'dev-admin-token';
@@ -10,7 +10,7 @@ test('scenario: every step behaves as the brief describes', async () => {
   await waitForService(url, 15);
   const demo = await setupDemo(url, admin);
   const steps = await runScenario(demo);
-  for (const s of steps) assert.ok(s.ok, `step failed: ${s.title}\n${JSON.stringify(s.decision, null, 2)}`);
+  for (const s of steps) assert.ok(s.ok, `step failed: ${s.title}\n${JSON.stringify(s.kind === 'consume' ? s.decision : s, null, 2)}`);
   assert.equal(steps.length, 11);
 });
 

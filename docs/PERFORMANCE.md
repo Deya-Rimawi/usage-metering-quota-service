@@ -80,6 +80,6 @@ cp .env.example .env
 docker compose up -d --build                                       # db + service + client
 docker compose --profile tools run --rm --build loadtest all --label mine          # all scenarios, 3 x 15 s each, ~6 min
 docker compose --profile tools run --rm loadtest hot --duration 10 --runs 1 --label quick   # a single scenario
-bash loadtest/sweep.sh && node loadtest/summarize.mjs sweep-c      # the concurrency sweep
+bash loadtest/sweep.sh && node loadtest/summarize.ts sweep-c      # the concurrency sweep
 ```
 Needs only Docker. Results are written to `loadtest/results/<label>.json` (raw per-run numbers including the wait-event samples); the files from the runs quoted here are committed. Exit code is non-zero if any invariant fails. Options: `--duration`, `--connections`, `--runs`, `--label`.

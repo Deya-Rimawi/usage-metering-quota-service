@@ -2,7 +2,7 @@
 
 Backend service that tracks usage and decides whether a user may consume units, enforcing an account plan and a user plan together.
 
-**What is in the repo:** the service (`service/`, TypeScript + PostgreSQL), an example client with a web page (`client/`), load tests (`loadtest/`), and documentation (`docs/`). One command starts all of it.
+**What is in the repo:** the service (`service/`), an example client with a web page (`client/`), load tests (`loadtest/`), and documentation (`docs/`), all in TypeScript on PostgreSQL. One command starts all of it.
 
 ## Quick start
 ```bash
@@ -18,6 +18,7 @@ curl localhost:3000/ready
 cd service && npm install
 docker compose up -d db          # tests use the compose database on 127.0.0.1:5433
 npm run check                    # typecheck + 82 tests
+(cd ../client && npm install && npm run typecheck)   # the client and load tests are TypeScript too (Node runs them directly)
 docker compose --profile tools run --rm e2e   # demo scenario against the live stack
 ```
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sweeps ACCOUNT_CONCURRENCY (the per-account in-process limit) and records spread / hot / noisy-neighbor each time.
-# Run from the repo root:  bash loadtest/sweep.sh        (about 8 minutes)  then:  node loadtest/summarize.mjs sweep-c
+# Run from the repo root:  bash loadtest/sweep.sh        (about 8 minutes)  then:  node loadtest/summarize.ts sweep-c
 set -euo pipefail
 for c in ${LIMITS:-1 2 4 8}; do
   echo "== ACCOUNT_CONCURRENCY=$c" >&2

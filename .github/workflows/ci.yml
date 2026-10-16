@@ -21,6 +21,12 @@ jobs:
         working-directory: service
         env:
           TEST_ADMIN_DATABASE_URL: postgres://postgres:metering@localhost:5434/postgres
+      - name: Type-check the demo client and the load-test tooling (TypeScript)
+        run: |
+          npm ci --prefix client
+          npm ci --prefix loadtest
+          npm run typecheck --prefix client
+          npm run typecheck --prefix loadtest
       - name: Full stack boots and the demo scenario passes
         run: |
           cp .env.example .env

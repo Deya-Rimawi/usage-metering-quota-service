@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocFlow Demo Client</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --ink: #1b1f27; --muted: #5d6676; --line: #e2e5ea;
+    --ok: #17803d; --ok-bg: #e6f5ec; --bad: #b3261e; --bad-bg: #fbe9e7; --accent: #2457d6; --bar: #dfe4ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1218; --card: #181c25; --ink: #e8ebf1; --muted: #9aa3b5; --line: #2a303d;
+      --ok: #4cc177; --ok-bg: #12301f; --bad: #ff8a80; --bad-bg: #3a1b18; --accent: #7a9cff; --bar: #2a3040; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  p.sub { margin: 0 0 20px; color: var(--muted); }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  select, input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; }
+  button { padding: 8px 14px; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; font: inherit; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: wait; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .decision { margin-top: 14px; padding: 12px; border-radius: 8px; border: 1px solid; }
+  .decision.ok { background: var(--ok-bg); border-color: var(--ok); }
+  .decision.bad { background: var(--bad-bg); border-color: var(--bad); }
+  .decision strong { display: block; font-size: 16px; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-right: 4px; }
+  .meter { height: 8px; background: var(--bar); border-radius: 4px; overflow: hidden; margin: 6px 0 4px; }
+  .meter > div { height: 100%; background: var(--accent); }
+  .meter.full > div { background: var(--bad); }
+  .who { display: flex; justify-content: space-between; align-items: baseline; }
+  .small { font-size: 13px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  .pass { color: var(--ok); } .fail { color: var(--bad); }
+  ol.steps { padding-left: 20px; margin: 12px 0 0; }
+  ol.steps li { margin-bottom: 10px; }
+  ol.steps li.config { color: var(--accent); }
+  .wide { margin-top: 16px; }
+  #error { color: var(--bad); margin-top: 8px; min-height: 1em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>DocFlow demo client</h1>
+  <p class="sub">A simulated document-processing app. Every action asks the metering service first, using the account's API key held on this app's server. Limits are changed through the service's API; this page's code never changes.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Process a document</h2>
+      <label for="user">User</label>
+      <select id="user"></select>
+      <label for="units">Pages (units to consume)</label>
+      <input id="units" type="number" min="1" step="1" value="10">
+      <div class="row">
+        <button id="process">Process</button>
+        <button id="retry" class="secondary" disabled title="Resend the exact same request (same requestId), as after a network timeout">Retry last request</button>
+      </div>
+      <div id="decision" aria-live="polite"></div>
+      <div id="error" role="alert"></div>
+    </section>
+
+    <section class="card">
+      <h2>Allowances this month</h2>
+      <div id="balances"></div>
+    </section>
+
+    <section class="card">
+      <h2>Change the rules</h2>
+      <div id="userPlans"></div>
+      <label>Account plan (custom, editable)</label>
+      <div class="row" style="margin-top:0">
+        <input id="accMonthly" type="number" min="1" placeholder="monthly" aria-label="Account monthly allowance" style="flex:1">
+        <input id="accPerReq" type="number" min="1" placeholder="per request" aria-label="Account max per request" style="flex:1">
+      </div>
+      <div class="row"><button id="saveAccount" class="secondary">Save account limits</button></div>
+      <p class="small">Blank = unlimited. Takes effect on the next request; units already used are kept.</p>
+    </section>
+  </div>
+
+  <section class="card wide">
+    <h2>Guided scenario</h2>
+    <p class="small" style="margin-top:0">Starts a fresh account and runs: an accepted action, a user-limit rejection, an account-limit rejection, a plan change, and safe retries.</p>
+    <div class="row" style="margin-top:0"><button id="scenario">Run scenario</button><button id="reset" class="secondary">Reset demo account</button></div>
+    <ol id="steps" class="steps"></ol>
+  </section>
+
+  <section class="card wide">
+    <h2>Recent decisions (from GET /requests)</h2>
+    <table><thead><tr><th>User</th><th>Units</th><th>Outcome</th><th>Why</th></tr></thead><tbody id="history"></tbody></table>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let last = null; // last process request, for the retry button
+
+async function api(path, body) {
+  const res = await fetch(path, { method: body === undefined ? 'GET' : 'POST', headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || res.statusText);
+  return json;
+}
+const fmt = (n) => (n === null ? 'unlimited' : n.toLocaleString());
+function busy(on) { document.querySelectorAll('button').forEach((b) => { if (on) b.disabled = true; else if (b.id !== 'retry') b.disabled = false; }); $('retry').disabled = on || !last; }
+async function run(fn) {
+  busy(true); $('error').textContent = '';
+  try { await fn(); } catch (e) { $('error').textContent = e.message; } finally { busy(false); }
+}
+
+function meter(title, planLine, s) {
+  const pct = s.monthlyAllowance ? Math.min(100, (s.used / s.monthlyAllowance) * 100) : 0;
+  return `<div style="margin-bottom:14px"><div class="who"><strong>${esc(title)}</strong><span class="small">${esc(planLine)}</span></div>
+    <div class="meter ${s.remaining === 0 ? 'full' : ''}"><div style="width:${pct}%"></div></div>
+    <div class="small">${s.used.toLocaleString()} used · <strong>${fmt(s.remaining)}</strong> remaining of ${fmt(s.monthlyAllowance)} · max ${fmt(s.maxPerRequest)} per request</div></div>`;
+}
+
+function render(st) {
+  const { usage, plans, accountPlanId } = st;
+  const sel = $('user'), keep = sel.value;
+  sel.innerHTML = usage.users.map((u) => `<option value="${esc(u.userId)}">${esc(u.userId)}</option>`).join('');
+  if (keep) sel.value = keep;
+
+  $('balances').innerHTML = meter('Account (shared)', usage.account.planName, usage.account) +
+    usage.users.map((u) => meter(u.userId, u.planName, u)).join('');
+
+  const userPlans = plans.filter((p) => p.kind === 'user');
+  $('userPlans').innerHTML = usage.users.map((u) => `<label for="plan-${esc(u.userId)}">${esc(u.userId)}'s plan</label>
+    <select id="plan-${esc(u.userId)}" data-user="${esc(u.userId)}">${userPlans.map((p) =>
+      `<option value="${esc(p.id)}" ${p.id === u.planId ? 'selected' : ''}>${esc(p.name)} (${fmt(p.monthlyAllowance)}/mo, ${fmt(p.maxPerRequest)}/req)</option>`).join('')}</select>`).join('');
+  document.querySelectorAll('#userPlans select').forEach((s) => s.addEventListener('change', () =>
+    run(async () => render(await api('/api/user-plan', { userId: s.dataset.user, planId: s.value })))));
+
+  const ap = plans.find((p) => p.id === accountPlanId);
+  if (ap && document.activeElement !== $('accMonthly') && document.activeElement !== $('accPerReq')) {
+    $('accMonthly').value = ap.monthlyAllowance ?? ''; $('accPerReq').value = ap.maxPerRequest ?? '';
+  }
+
+  $('history').innerHTML = st.history.map((r) => `<tr><td>${esc(r.userId)}</td><td>${r.units}</td>
+    <td class="${r.accepted ? 'pass' : 'fail'}">${r.accepted ? 'accepted' : 'rejected'}</td>
+    <td>${r.accepted ? '' : `<span class="tag">${esc(r.level)}</span><span class="tag">${esc(r.rule)}</span>`}</td></tr>`).join('') || '<tr><td colspan="4" class="small">No requests yet</td></tr>';
+}
+
+function showDecision(d, result) {
+  const tags = `<span class="tag">${d.replayed ? 'replayed (same stored answer)' : 'new decision'}</span>`;
+  $('decision').innerHTML = d.accepted
+    ? `<div class="decision ok"><strong>Accepted</strong>${esc(result)}<div class="small">${tags}Account remaining: ${fmt(d.account.remaining)} · ${esc(d.userId)} remaining: ${fmt(d.user.remaining)}</div></div>`
+    : `<div class="decision bad"><strong>Rejected by the ${esc(d.level)}'s ${esc(d.rule.replace(/_/g, ' '))}</strong>${esc(d.message)}
+       <div class="small">${tags}Nothing was consumed. Account remaining: ${fmt(d.account.remaining)} · ${esc(d.userId)} remaining: ${fmt(d.user.remaining)}</div></div>`;
+}
+
+async function process(requestId) {
+  const body = { userId: $('user').value, units: Number($('units').value), requestId };
+  const { decision, result } = await api('/api/process', body);
+  last = { userId: body.userId, units: body.units, requestId: decision.requestId };
+  showDecision(decision, result);
+  render(await api('/api/state'));
+}
+
+$('process').addEventListener('click', () => run(() => process()));
+$('retry').addEventListener('click', () => run(async () => {
+  $('user').value = last.userId; $('units').value = last.units;
+  await process(last.requestId);
+}));
+$('saveAccount').addEventListener('click', () => run(async () =>
+  render(await api('/api/account-limits', { monthlyAllowance: $('accMonthly').value, maxPerRequest: $('accPerReq').value }))));
+$('reset').addEventListener('click', () => run(async () => { last = null; $('decision').innerHTML = ''; $('steps').innerHTML = ''; render(await api('/api/reset', {})); }));
+$('scenario').addEventListener('click', () => run(async () => {
+  const out = await api('/api/scenario', {});
+  last = null;
+  $('steps').innerHTML = out.steps.map((s) => s.kind === 'config'
+    ? `<li class="config">${esc(s.title)}</li>`
+    : `<li><span class="${s.ok ? 'pass' : 'fail'}">${s.ok ? '✔' : '✘'}</span> ${esc(s.title)}<br>
+       <span class="small">${s.decision.accepted ? 'accepted' : `rejected: ${esc(s.decision.level)} ${esc(s.decision.rule)}`}${s.decision.replayed ? ' · replayed' : ''}
+       · account left ${fmt(s.decision.account.remaining)} · ${esc(s.userId)} left ${fmt(s.decision.user.remaining)}</span></li>`).join('');
+  render(out);
+}));
+
+run(async () => render(await api('/api/state')));
+</script>
+</body>
+</html>

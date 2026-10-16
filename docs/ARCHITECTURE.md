@@ -71,7 +71,7 @@ docs/                this documentation set
 ## Cross-cutting
 - **Auth:** `X-API-Key` -> sha256 -> indexed lookup -> `req.account`. All handlers scope by `req.account.id`, never by client-supplied account ids.
 - **Config:** validated at boot with zod; the process refuses to start on bad config.
-- **Startup:** migrations run under a Postgres advisory lock, then predefined plans are upserted; safe to run on every boot and from several instances.
+- **Startup:** wait for the database (bounded retry, so a database that is still starting does not crash the service), run migrations under a Postgres advisory lock, upsert the predefined plans. Safe on every boot and from several instances; Compose restarts the service if it exits.
 - **Shutdown:** SIGTERM stops accepting requests, lets in-flight transactions finish, closes the pool.
 - **Observability:** structured JSON logs (pino) with a request id; `/health` (liveness) and `/ready` (DB reachable).
 - **Horizontal scaling:** nothing the service holds in memory is needed for correctness (the per-account gate is only a performance guard), so more copies can run against the same database; correctness comes from the database lock, not from the process.

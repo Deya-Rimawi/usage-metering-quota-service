@@ -2,7 +2,7 @@
 
 Backend service that tracks usage and decides whether a user may consume units, enforcing an account plan and a user plan together.
 
-> **Status:** Day 6 of 7: API, demo client, load tests and optimization done. Final review and polish come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
+> **Status:** Complete: API, demo client, load tests, security and code reviews, clean-clone verified.. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Quick start
 ```bash
@@ -17,7 +17,7 @@ curl localhost:3000/ready
 ```bash
 cd service && npm install
 docker compose up -d db          # tests use the compose database on 127.0.0.1:5433
-npm run check                    # typecheck + tests
+npm run check                    # typecheck + 82 tests
 docker compose --profile tools run --rm e2e   # demo scenario against the live stack
 ```
 
@@ -88,6 +88,7 @@ All via environment variables (Compose reads `.env`; see `.env.example`). Only t
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): layers, diagrams, request lifecycle
 - [`docs/API.md`](docs/API.md): endpoint reference, error catalogue ([`openapi.json`](docs/openapi.json))
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md): ER diagram, constraints, invariants
+- [`docs/TESTING.md`](docs/TESTING.md): what every test proves, and the checks that show the tests can fail
 - [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md): load-test method, results, bottleneck analysis, what helped and what did not
 - [`docs/CONCURRENCY.md`](docs/CONCURRENCY.md): how consume stays correct under parallel requests
 - [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md): every product decision the brief left open

@@ -4,16 +4,20 @@ import type pg from 'pg';
 import type { Config } from '../config';
 import { apiKeyAuth } from './auth';
 import { registerErrorHandling } from './errors';
+import type { Clock } from '../domain/period';
 import { accountRoutes, adminRoutes } from './routes/accounts';
+import { consumeRoutes } from './routes/consume';
 import { planRoutes } from './routes/plans';
 import { userRoutes } from './routes/users';
 
 export interface AppDeps {
   pool: pg.Pool;
   config: Config;
+  /** Injectable so tests can move time across month boundaries. */
+  clock?: Clock;
 }
 
-export function buildApp({ pool, config }: AppDeps): FastifyInstance {
+export function buildApp({ pool, config, clock = () => new Date() }: AppDeps): FastifyInstance {
   const app = Fastify({ logger: { level: config.LOG_LEVEL }, bodyLimit: 100_000 });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -38,6 +42,7 @@ export function buildApp({ pool, config }: AppDeps): FastifyInstance {
     accountRoutes(scope, pool);
     userRoutes(scope, pool);
     planRoutes(scope, pool);
+    consumeRoutes(scope, pool, clock);
   });
 
   return app;

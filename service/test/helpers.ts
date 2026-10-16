@@ -32,8 +32,8 @@ import { buildApp } from '../src/http/app';
 
 export const ADMIN = 'test-admin-token';
 
-export function makeApp(pool: pg.Pool): FastifyInstance {
-  return buildApp({ pool, config: loadConfig({ DATABASE_URL: TEST_URL, ADMIN_TOKEN: ADMIN, LOG_LEVEL: process.env.TEST_LOG ?? "silent" }) });
+export function makeApp(pool: pg.Pool, clock?: () => Date): FastifyInstance {
+  return buildApp({ clock, pool, config: loadConfig({ DATABASE_URL: TEST_URL, ADMIN_TOKEN: ADMIN, LOG_LEVEL: process.env.TEST_LOG ?? "silent" }) });
 }
 
 /** Tiny HTTP client bound to one API key. */
@@ -52,4 +52,40 @@ export async function createAccount(app: FastifyInstance, name: string, planId =
   const res = await app.inject({ method: 'POST', url: '/accounts', payload: { name, planId }, headers: { 'x-admin-token': ADMIN } });
   const body = res.json();
   return { id: body.account.id as string, key: body.apiKey as string, res };
+}
+
+type Client = ReturnType<typeof client>;
+
+export async function newPlan(c: Client, kind: 'account' | 'user', name: string, monthlyAllowance: number | null, maxPerRequest: number | null): Promise<string> {
+  return (await c.post('/plans', { kind, name, monthlyAllowance, maxPerRequest })).json().id;
+}
+
+export async function newUser(c: Client, userId: string, planId: string) {
+  const res = await c.post('/users', { userId, planId });
+  if (res.statusCode !== 201) throw new Error(res.body);
+}
+
+let seq = 0;
+export const consume = async (c: Client, userId: string, units: number, requestId = `r-${++seq}-${Math.random()}`) =>
+  (await c.post('/consume', { userId, units, requestId })).json();
+
+/**
+ * Invariants I1 + I5 from docs/CONCURRENCY.md, checked straight from the database:
+ * every counter equals the sum of accepted units in the request log, and the account total equals the sum of its users.
+ * Returns the offending rows (empty = healthy).
+ */
+export async function brokenInvariants(pool: pg.Pool) {
+  const user = await pool.query(`
+    SELECT uu.user_id, uu.units AS counter, COALESCE(r.s, 0) AS logged FROM user_usage uu
+    LEFT JOIN (SELECT user_id, period, sum(units) AS s FROM requests WHERE accepted GROUP BY 1, 2) r USING (user_id, period)
+    WHERE uu.units <> COALESCE(r.s, 0)`);
+  const account = await pool.query(`
+    SELECT au.account_id, au.units AS counter, COALESCE(r.s, 0) AS logged FROM account_usage au
+    LEFT JOIN (SELECT account_id, period, sum(units) AS s FROM requests WHERE accepted GROUP BY 1, 2) r USING (account_id, period)
+    WHERE au.units <> COALESCE(r.s, 0)`);
+  const sums = await pool.query(`
+    SELECT au.account_id FROM account_usage au
+    WHERE au.units <> (SELECT COALESCE(sum(uu.units), 0) FROM user_usage uu JOIN users u ON u.id = uu.user_id
+                       WHERE u.account_id = au.account_id AND uu.period = au.period)`);
+  return [...user.rows, ...account.rows, ...sums.rows];
 }

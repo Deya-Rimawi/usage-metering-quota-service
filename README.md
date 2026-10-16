@@ -2,7 +2,7 @@
 
 Backend service that tracks usage and decides whether a user may consume units, enforcing an account plan and a user plan together.
 
-> **Status:** Day 2 of 7 (accounts, API keys, users, plans, isolation). Consume, usage and history come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
+> **Status:** Day 3 of 7 (accounts, API keys, users, plans, **consume engine**). Usage/history endpoints, demo client and load tests come next. The full plan is in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Quick start
 ```bash
@@ -41,10 +41,24 @@ curl -s -X PUT  localhost:3000/users/alice/plan -H "x-api-key: $KEY" -H 'content
 curl -s -X POST  localhost:3000/plans -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"kind":"user","name":"Team","monthlyAllowance":100,"maxPerRequest":10}'
 curl -s -X PATCH localhost:3000/plans/<planId> -H "x-api-key: $KEY" -H 'content-type: application/json' -d '{"monthlyAllowance":200}'
+
+# 4. Consume units. Same requestId = safe retry.
+curl -s -X POST localhost:3000/consume -H "x-api-key: $KEY" -H 'content-type: application/json' \
+  -d '{"userId":"alice","units":10,"requestId":"doc-123"}'
+```
+Response (HTTP 200 whether accepted or not):
+```json
+{ "accepted": false, "rule": "max_per_request", "level": "user",
+  "message": "The user's plan allows at most 20 units per request; 25 requested",
+  "violations": [ { "level": "user", "rule": "max_per_request", "limit": 20, "requested": 25, "remaining": null } ],
+  "user":    { "planId": "basic",   "monthlyAllowance": 500,   "maxPerRequest": 20,  "used": 0, "remaining": 500 },
+  "account": { "planId": "starter", "monthlyAllowance": 10000, "maxPerRequest": 100, "used": 0, "remaining": 10000 },
+  "replayed": false, "requestId": "doc-123", "userId": "alice", "units": 25, "period": "2026-10" }
 ```
 Errors always look like `{"error":{"code":"...","message":"..."}}`.
 
 ## Docs
 - [`docs/PLAN.md`](docs/PLAN.md): architecture, schedule, and the documentation roadmap
+- [`docs/CONCURRENCY.md`](docs/CONCURRENCY.md): how consume stays correct under parallel requests
 - [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md): every product decision the brief left open
 - [`docs/decisions/`](docs/decisions): architecture decision records

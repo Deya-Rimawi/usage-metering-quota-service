@@ -5,7 +5,7 @@ export const periodOf = (d: Date): string => `${d.toISOString().slice(0, 7)}-01`
 
 /** '2026-10' (API format) -> '2026-10-01'. Returns null if malformed. */
 export function parsePeriod(s: string): string | null {
-  const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(s);
+  const m = /^(19[7-9]\d|[2-9]\d{3})-(0[1-9]|1[0-2])$/.exec(s); // 1970-9999: years Postgres can store as a date
   return m ? `${m[1]}-${m[2]}-01` : null;
 }
 

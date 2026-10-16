@@ -27,6 +27,19 @@ export async function verify(databaseUrl, accountIds, { expectAccountUsed } = {}
                                                      WHERE u.account_id = au.account_id AND uu.period = au.period)`);
     if (sumMismatch.length) problems.push(`I5: ${sumMismatch.length} accounts where account usage != sum of users`);
 
+    // I2 per decision: the balance after every accepted decision fits the allowance that applied to it.
+    const overspent = await q(`
+      SELECT request_id FROM requests WHERE account_id = ANY($1) AND accepted AND (
+        ((applied->'user'->>'monthlyAllowance') IS NOT NULL AND (applied->'user'->>'used')::bigint > (applied->'user'->>'monthlyAllowance')::bigint)
+        OR ((applied->'account'->>'monthlyAllowance') IS NOT NULL AND (applied->'account'->>'used')::bigint > (applied->'account'->>'monthlyAllowance')::bigint))`);
+    if (overspent.length) problems.push(`I2: ${overspent.length} accepted decisions left a balance above their allowance`);
+
+    // The other direction of I1: accepted requests that left no counter behind.
+    const uncounted = await q(`
+      SELECT 1 FROM (SELECT account_id, period FROM requests WHERE account_id = ANY($1) AND accepted GROUP BY 1, 2) r
+      LEFT JOIN account_usage au USING (account_id, period) WHERE au.account_id IS NULL`);
+    if (uncounted.length) problems.push(`I1: ${uncounted.length} account-months have accepted requests but no counter`);
+
     const pending = await q(`SELECT 1 FROM requests WHERE account_id = ANY($1) AND accepted IS NULL`);
     if (pending.length) problems.push(`${pending.length} requests left without a decision`);
 

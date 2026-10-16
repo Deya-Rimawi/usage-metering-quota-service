@@ -37,7 +37,7 @@ export class Metering {
   setUserPlan(userId, planId) { return this.#call('PUT', `/users/${encodeURIComponent(userId)}/plan`, { planId }); }
   addUser(userId, planId) { return this.#call('POST', '/users', { userId, planId }); }
   createPlan(plan) { return this.#call('POST', '/plans', plan); }
-  editPlan(planId, patch) { return this.#call('PATCH', `/plans/${planId}`, patch); }
+  editPlan(planId, patch) { return this.#call('PATCH', `/plans/${encodeURIComponent(planId)}`, patch); }
   setAccountPlan(planId) { return this.#call('PUT', '/account/plan', { planId }); }
 }
 

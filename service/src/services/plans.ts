@@ -5,12 +5,16 @@ import { isUniqueViolation, type Db } from '../repositories/db';
 import * as plans from '../repositories/plans';
 
 /** Loads a plan the account may use (predefined or its own) and checks it is the right kind for the target. */
-export async function resolvePlan(db: Db, accountId: string, planId: string, kind: PlanKind): Promise<Plan> {
+/** `accountId` null = predefined plans only (an account being created has no custom plans yet). */
+export async function resolvePlan(db: Db, accountId: string | null, planId: string, kind: PlanKind): Promise<Plan> {
   const plan = await plans.getVisible(db, accountId, planId);
   if (!plan) throw notFound('Plan');
   if (plan.kind !== kind) throw invalid('wrong_plan_kind', `Plan '${planId}' is a ${plan.kind} plan; a ${kind} plan is required`);
   return plan;
 }
+
+/** Keeps one key holder from growing the database without bound (see docs/ASSUMPTIONS.md). */
+export const MAX_CUSTOM_PLANS_PER_ACCOUNT = 100;
 
 export const listPlans = (db: Db, accountId: string) => plans.listVisible(db, accountId);
 
@@ -24,6 +28,9 @@ export async function createPlan(
   pool: pg.Pool, accountId: string,
   input: { kind: PlanKind; name: string; monthlyAllowance: number | null; maxPerRequest: number | null },
 ): Promise<Plan> {
+  if ((await plans.countOwned(pool, accountId, MAX_CUSTOM_PLANS_PER_ACCOUNT)) >= MAX_CUSTOM_PLANS_PER_ACCOUNT) {
+    throw forbidden('account_limit_reached', `An account may have at most ${MAX_CUSTOM_PLANS_PER_ACCOUNT} custom plans`);
+  }
   try {
     return await plans.insert(pool, accountId, input);
   } catch (e) {

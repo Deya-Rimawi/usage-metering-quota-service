@@ -10,6 +10,10 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? 'dev-admin-token';
 const PORT = Number(process.env.PORT ?? 8080);
 
 let demo; // { metering, accountPlanId }
+
+// reset and scenario replace the whole demo account: run them one at a time so two clicks cannot interleave.
+let exclusiveChain = Promise.resolve();
+const exclusive = (fn) => { const run = exclusiveChain.then(fn); exclusiveChain = run.catch(() => {}); return run; };
 const reset = async () => { demo = await setupDemo(SERVICE_URL, ADMIN_TOKEN); };
 
 async function state() {
@@ -20,8 +24,8 @@ async function state() {
 
 const routes = {
   'GET /api/state': () => state(),
-  'POST /api/reset': async () => { await reset(); return state(); },
-  'POST /api/scenario': async () => { await reset(); const steps = await runScenario(demo); return { steps, ...(await state()) }; },
+  'POST /api/reset': () => exclusive(async () => { await reset(); return state(); }),
+  'POST /api/scenario': () => exclusive(async () => { await reset(); const steps = await runScenario(demo); return { steps, ...(await state()) }; }),
   // The business action (simulated). The ONLY metering call it makes is consume().
   'POST /api/process': async ({ userId, units, requestId }) => {
     const decision = await demo.metering.consume(userId, Number(units), requestId || undefined);
@@ -36,6 +40,8 @@ const routes = {
   },
 };
 
+const MAX_BODY = 10_000; // bytes: the biggest legitimate request here is a few hundred
+
 const json = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
 
 createServer(async (req, res) => {
@@ -49,8 +55,18 @@ createServer(async (req, res) => {
     if (!handler) return json(res, 404, { error: 'not found' });
     let body = {};
     if (req.method === 'POST') {
+      // These endpoints act with the account's API key, so a web page on another origin must not be able to
+      // trigger them: require a JSON content type (forces a CORS preflight, which we never grant) and refuse
+      // requests whose Origin is not this server.
+      if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 415, { error: 'content-type must be application/json' });
+      if (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return json(res, 403, { error: 'cross-origin request refused' });
       const chunks = [];
-      for await (const c of req) chunks.push(c);
+      let size = 0;
+      for await (const c of req) {
+        size += c.length;
+        if (size > MAX_BODY) return json(res, 413, { error: 'request body too large' });
+        chunks.push(c);
+      }
       if (chunks.length) body = JSON.parse(Buffer.concat(chunks).toString());
     }
     json(res, 200, await handler(body));

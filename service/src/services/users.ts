@@ -1,10 +1,13 @@
 import type pg from 'pg';
-import { conflict, notFound } from '../domain/errors';
+import { conflict, forbidden, notFound } from '../domain/errors';
 import type { Plan } from '../domain/types';
 import { isUniqueViolation } from '../repositories/db';
 import * as plans from '../repositories/plans';
 import * as users from '../repositories/users';
 import { resolvePlan } from './plans';
+
+/** Keeps one key holder from growing the database without bound (see docs/ASSUMPTIONS.md). */
+export const MAX_USERS_PER_ACCOUNT = 100_000;
 
 export interface UserView { userId: string; plan: Plan; createdAt: string }
 
@@ -21,6 +24,9 @@ async function toView(pool: pg.Pool, accountId: string, row: users.UserRow): Pro
 
 export async function createUser(pool: pg.Pool, accountId: string, input: { userId: string; planId: string }) {
   await resolvePlan(pool, accountId, input.planId, 'user');
+  if ((await users.countForAccount(pool, accountId, MAX_USERS_PER_ACCOUNT)) >= MAX_USERS_PER_ACCOUNT) {
+    throw forbidden('account_limit_reached', `An account may have at most ${MAX_USERS_PER_ACCOUNT} users`);
+  }
   try {
     return toView(pool, accountId, await users.insert(pool, accountId, input.userId, input.planId));
   } catch (e) {

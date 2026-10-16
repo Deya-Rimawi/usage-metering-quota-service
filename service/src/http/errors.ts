@@ -13,6 +13,14 @@ export function registerErrorHandling(app: FastifyInstance) {
         error: { code: 'validation_error', message: 'Request validation failed', details: err.validation.map((v) => ({ path: v.instancePath, message: v.message })) },
       });
     }
+    // Safety net: Postgres class 22 = invalid data the schemas did not catch (bad cast, out of range, NUL).
+    if (typeof err.code === 'string' && err.code.startsWith('22')) {
+      req.log.warn({ pgCode: err.code }, 'rejected invalid input');
+      return reply.code(422).send({ error: { code: 'invalid_input', message: 'A value in the request is not valid' } });
+    }
+    if (err.statusCode === 429) {
+      return reply.code(429).send({ error: { code: 'rate_limited', message: 'Too many requests; slow down' } });
+    }
     if (err.statusCode && err.statusCode < 500) {
       return reply.code(err.statusCode).send({ error: { code: 'bad_request', message: err.message } });
     }

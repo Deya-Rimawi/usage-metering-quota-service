@@ -1,0 +1,255 @@
+{
+  "label": "review-smoke",
+  "duration": 8,
+  "connections": 64,
+  "runs": 1,
+  "when": "2026-10-16T15:53:04.567Z",
+  "summary": [
+    {
+      "scenario": "spread",
+      "runs": [
+        {
+          "scenario": "spread",
+          "rps": 1596,
+          "p50": 34,
+          "p97_5": 85,
+          "p99": 101,
+          "max": 178,
+          "total": 12770,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 12770,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 12820,
+          "waits": {
+            "Client:ClientRead": 8.15,
+            "active": 0.78,
+            "IO:DataFileRead": 0.21,
+            "IO:WALSync": 0.95,
+            "LWLock:WALWrite": 4.45,
+            "idle in transaction": 0.31,
+            "IO:WALWrite": 0.01
+          }
+        }
+      ],
+      "rps": 1596,
+      "p50": 34,
+      "p99": 101,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    },
+    {
+      "scenario": "hot",
+      "runs": [
+        {
+          "scenario": "hot",
+          "rps": 278,
+          "p50": 228,
+          "p97_5": 244,
+          "p99": 248,
+          "max": 251,
+          "total": 2227,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2227,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2291,
+          "waits": {
+            "idle in transaction": 0.09,
+            "IO:WALSync": 0.56,
+            "Client:ClientRead": 0.19,
+            "active": 0.14
+          }
+        }
+      ],
+      "rps": 278,
+      "p50": 228,
+      "p99": 248,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    },
+    {
+      "scenario": "hot-limited",
+      "runs": [
+        {
+          "scenario": "hot-limited",
+          "rps": 282,
+          "p50": 226,
+          "p97_5": 239,
+          "p99": 244,
+          "max": 254,
+          "total": 2254,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 1000,
+          "rejected": 1254,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2318,
+          "waits": {
+            "IO:WALSync": 0.63,
+            "active": 0.19,
+            "Client:ClientRead": 0.11,
+            "idle in transaction": 0.05
+          }
+        }
+      ],
+      "rps": 282,
+      "p50": 226,
+      "p99": 244,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    },
+    {
+      "scenario": "retry-storm",
+      "runs": [
+        {
+          "scenario": "retry-storm",
+          "rps": 1501,
+          "p50": 37,
+          "p97_5": 88,
+          "p99": 94,
+          "max": 103,
+          "total": 12007,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 12007,
+          "rejected": 0,
+          "replayed": 6000,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 6036,
+          "waits": {
+            "Client:ClientRead": 2.89,
+            "IO:WALSync": 0.94,
+            "LWLock:WALWrite": 4.25,
+            "active": 0.42,
+            "idle in transaction": 0.2
+          }
+        }
+      ],
+      "rps": 1501,
+      "p50": 37,
+      "p99": 94,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    },
+    {
+      "scenario": "noisy-neighbor",
+      "runs": [
+        {
+          "scenario": "noisy-neighbor",
+          "rps": 1466,
+          "p50": 9,
+          "p97_5": 23,
+          "p99": 27,
+          "max": 43,
+          "total": 11727,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 11727,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "backgroundRps": 149,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 12980,
+          "waits": {
+            "Client:ClientRead": 2.91,
+            "IO:WALSync": 1,
+            "LWLock:WALWrite": 4.72,
+            "active": 0.86,
+            "IO:DataFileRead": 0.01,
+            "idle in transaction": 0.24
+          }
+        }
+      ],
+      "rps": 1466,
+      "p50": 9,
+      "p99": 27,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    },
+    {
+      "scenario": "plan-edits",
+      "runs": [
+        {
+          "scenario": "plan-edits",
+          "rps": 273,
+          "p50": 231,
+          "p97_5": 247,
+          "p99": 250,
+          "max": 254,
+          "total": 2184,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2184,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2248,
+          "waits": {
+            "IO:WALSync": 0.54,
+            "Client:ClientRead": 0.25,
+            "active": 0.2,
+            "idle in transaction": 0.03
+          }
+        }
+      ],
+      "rps": 273,
+      "p50": 231,
+      "p99": 250,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    },
+    {
+      "scenario": "mixed-reads",
+      "runs": [
+        {
+          "scenario": "mixed-reads",
+          "rps": 363,
+          "p50": 231,
+          "p97_5": 264,
+          "p99": 274,
+          "max": 284,
+          "total": 2905,
+          "non2xx": 0,
+          "errors": 0,
+          "accepted": 2137,
+          "rejected": 0,
+          "replayed": 0,
+          "bad": 0,
+          "invariantsOk": true,
+          "problems": [],
+          "logged": 2201,
+          "waits": {
+            "IO:WALSync": 0.65,
+            "active": 0.25,
+            "Client:ClientRead": 0.23,
+            "idle in transaction": 0.04,
+            "Timeout:VacuumDelay": 0.03
+          }
+        }
+      ],
+      "rps": 363,
+      "p50": 231,
+      "p99": 274,
+      "allInvariantsOk": true,
+      "anyErrors": false
+    }
+  ]
+}

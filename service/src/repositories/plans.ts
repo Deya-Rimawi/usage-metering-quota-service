@@ -16,7 +16,7 @@ export const toPlan = (r: any): Plan => ({
 });
 
 /** A plan is visible to an account if it is predefined or owned by that account. */
-export async function getVisible(db: Db, accountId: string, planId: string): Promise<Plan | null> {
+export async function getVisible(db: Db, accountId: string | null, planId: string): Promise<Plan | null> {
   const { rows } = await db.query(`SELECT ${COLS} FROM plans WHERE id = $1 AND (account_id IS NULL OR account_id = $2)`, [planId, accountId]);
   return rows[0] ? toPlan(rows[0]) : null;
 }
@@ -27,6 +27,12 @@ export async function listVisible(db: Db, accountId: string): Promise<Plan[]> {
     [accountId],
   );
   return rows.map(toPlan);
+}
+
+/** How many custom plans an account owns, counted up to `upTo` (bounded work even for huge accounts). */
+export async function countOwned(db: Db, accountId: string, upTo: number): Promise<number> {
+  const { rows } = await db.query('SELECT count(*)::int AS n FROM (SELECT 1 FROM plans WHERE account_id = $1 LIMIT $2) s', [accountId, upTo]);
+  return rows[0].n;
 }
 
 export async function insert(

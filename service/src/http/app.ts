@@ -1,3 +1,4 @@
+import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -26,7 +27,15 @@ export function buildApp({ pool, config, clock = () => new Date() }: AppDeps): F
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   registerErrorHandling(app);
-  const gate = createGate(config.ACCOUNT_CONCURRENCY);
+  const gate = createGate(config.ACCOUNT_CONCURRENCY, config.ACCOUNT_QUEUE_MAX);
+
+  // Defence in depth for a JSON API: never sniff content types, never cache responses.
+  app.addHook('onSend', async (_req, reply) => {
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('referrer-policy', 'no-referrer');
+    if (!reply.hasHeader('cache-control')) reply.header('cache-control', 'no-store');
+  });
+  app.register(rateLimit, { global: false }); // applied per route (the admin endpoints) below
 
   // OpenAPI is generated from the same zod schemas that validate requests, so the docs cannot drift.
   app.register(swagger, {
@@ -46,7 +55,7 @@ export function buildApp({ pool, config, clock = () => new Date() }: AppDeps): F
     },
     transform: jsonSchemaTransform,
   });
-  app.register(swaggerUi, { routePrefix: '/docs' });
+  if (config.DOCS_ENABLED) app.register(swaggerUi, { routePrefix: '/docs' });
 
   // Registered as plugins (not directly on the root) so swagger, loaded first, sees every route.
   app.register(async (open) => {
@@ -61,7 +70,7 @@ export function buildApp({ pool, config, clock = () => new Date() }: AppDeps): F
       }
     });
 
-    adminRoutes(open, pool, config.ADMIN_TOKEN);
+    adminRoutes(open, pool, config);
   });
 
   // Everything registered in this scope requires a valid X-API-Key.

@@ -16,6 +16,9 @@ services:
 
   service:
     build: ./service
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-metering}@db:5432/metering
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
@@ -30,10 +33,13 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - "3000:3000"
+      - "${BIND_ADDR:-0.0.0.0}:${SERVICE_PORT:-3000}:3000"   # BIND_ADDR=127.0.0.1 in .env publishes on localhost only
 
   client:
     build: ./client
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
       SERVICE_URL: http://service:3000
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
@@ -41,7 +47,7 @@ services:
       service:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "${BIND_ADDR:-0.0.0.0}:${CLIENT_PORT:-8080}:8080"   # the demo client acts with an API key: prefer BIND_ADDR=127.0.0.1
 
   # End-to-end check of the demo scenario against the running stack:  docker compose run --rm e2e
   e2e:

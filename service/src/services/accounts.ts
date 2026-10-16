@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import { unauthorized } from '../domain/errors';
+import { notFound, unauthorized } from '../domain/errors';
 import type { Plan } from '../domain/types';
 import * as accounts from '../repositories/accounts';
 import { generateApiKey, hashApiKey } from './apiKeys';
@@ -13,7 +13,7 @@ async function view(db: pg.Pool, row: accounts.AccountRow): Promise<AccountView>
 
 /** Admin operation. The plain key is returned exactly once; only its hash is stored. */
 export async function createAccount(pool: pg.Pool, input: { name: string; planId: string }) {
-  await resolvePlan(pool, '00000000-0000-0000-0000-000000000000', input.planId, 'account'); // predefined only (no owner yet)
+  await resolvePlan(pool, null, input.planId, 'account'); // predefined only: the account does not exist yet
   const apiKey = generateApiKey();
   const row = await accounts.insert(pool, input.name, hashApiKey(apiKey), input.planId);
   return { account: await view(pool, row), apiKey };
@@ -39,6 +39,7 @@ export async function setAccountPlan(pool: pg.Pool, id: string, planId: string) 
 /** Lost-key recovery. The old key stops working immediately. */
 export async function rotateApiKey(pool: pg.Pool, id: string) {
   const apiKey = generateApiKey();
-  await accounts.setKeyHash(pool, id, hashApiKey(apiKey));
+  const done = await accounts.setKeyHash(pool, id, hashApiKey(apiKey));
+  if (!done.rowCount) throw notFound('Account');
   return { apiKey };
 }

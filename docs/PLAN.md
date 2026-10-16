@@ -1,5 +1,8 @@
 # Usage Metering & Quota Service: Master Plan (v2)
 
+> **Historical document.** This is the plan written *before* building. The implementation followed it, but measurement changed the consume design: the two-lock algorithm in section 1.4 was replaced by a single lock taken first ([ADR-005](decisions/ADR-005-lock-first-consume.md)), and a per-account gate was added ([ADR-006](decisions/ADR-006-per-account-gate.md)). For the current design read [ARCHITECTURE.md](ARCHITECTURE.md) and [CONCURRENCY.md](CONCURRENCY.md).
+
+
 Goal: a correct, well-architected, well-documented service you can fully explain and modify live in an interview.
 Priorities, in order: **correctness > reliability > explainability > performance > extras.**
 

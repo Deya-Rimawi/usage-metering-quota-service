@@ -74,4 +74,4 @@ docs/                this documentation set
 - **Startup:** migrations run under a Postgres advisory lock, then predefined plans are upserted; safe to run on every boot and from several instances.
 - **Shutdown:** SIGTERM stops accepting requests, lets in-flight transactions finish, closes the pool.
 - **Observability:** structured JSON logs (pino) with a request id; `/health` (liveness) and `/ready` (DB reachable).
-- **Horizontal scaling:** the service keeps no state in memory, so more copies can run against the same database; correctness comes from the database locks, not from the process.
+- **Horizontal scaling:** nothing the service holds in memory is needed for correctness (the per-account gate is only a performance guard), so more copies can run against the same database; correctness comes from the database lock, not from the process.

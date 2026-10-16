@@ -1,4 +1,14 @@
+import type { Violation } from '../domain/rules';
 import type { Db } from './db';
+
+/** What a decision stores about each side: plan, limits, and balance after the decision. */
+export interface SideSnapshot {
+  planId: string; planName: string; monthlyAllowance: number | null; maxPerRequest: number | null; used: number; remaining: number | null;
+}
+export interface StoredDecision {
+  userId: string; units: number; period: string; accepted: boolean; violations: Violation[];
+  applied: { account: SideSnapshot; user: SideSnapshot };
+}
 
 /**
  * THE lock of the consume path: a row lock on the account's counter for this month, held until the
@@ -51,7 +61,7 @@ export async function readContext(db: Db, accountId: string, userId: string, req
     account: { planId: r.a_id as string, planName: r.a_name as string, limits: { monthlyAllowance: r.a_month as number | null, maxPerRequest: r.a_req as number | null } },
     user: r.u_id ? { planId: r.u_id as string, planName: r.u_name as string, limits: { monthlyAllowance: r.u_month as number | null, maxPerRequest: r.u_req as number | null } } : null,
     stored: r.r_user
-      ? { userId: r.r_user as string, units: r.r_units as number, period: r.r_period as string, accepted: r.r_accepted as boolean, violations: (r.r_violations ?? []) as any[], applied: r.r_applied as any }
+      ? { userId: r.r_user as string, units: r.r_units as number, period: r.r_period as string, accepted: r.r_accepted as boolean, violations: (r.r_violations ?? []) as Violation[], applied: r.r_applied as StoredDecision['applied'] }
       : null,
   };
 }
@@ -60,6 +70,8 @@ export async function readContext(db: Db, accountId: string, userId: string, req
  * Records the decision and, if accepted, adds the units to both counters: one statement, so counters and
  * log can never disagree. Caller holds the account lock. A rejection only inserts the log row.
  */
+// created_at uses clock_timestamp(), not now(): now() is the transaction START, i.e. before we waited for the
+// lock, which would make history order differ from decision order (and break cursors that rely on it).
 export async function record(
   db: Db,
   d: {
@@ -72,8 +84,8 @@ export async function record(
     text: `WITH a AS (UPDATE account_usage SET units = units + $4 WHERE account_id = $1 AND period = $5 AND $6::boolean),
           u AS (INSERT INTO user_usage (user_id, period, units) SELECT $2, $5, $4 WHERE $6::boolean
                 ON CONFLICT (user_id, period) DO UPDATE SET units = user_usage.units + EXCLUDED.units)
-     INSERT INTO requests (account_id, request_id, user_id, units, period, accepted, rejected_rule, rejected_level, violations, applied)
-     VALUES ($1, $3, $2, $4, $5, $6, $7, $8, $9, $10)`,
+     INSERT INTO requests (account_id, request_id, user_id, units, period, accepted, rejected_rule, rejected_level, violations, applied, created_at)
+     VALUES ($1, $3, $2, $4, $5, $6, $7, $8, $9, $10, clock_timestamp())`,
     values: [d.accountId, d.uid, d.requestId, d.units, d.period, d.accepted, d.rule ?? null, d.level ?? null, JSON.stringify(d.violations), JSON.stringify(d.applied)],
   });
 }

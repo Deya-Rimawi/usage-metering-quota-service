@@ -15,6 +15,12 @@ export async function insert(db: Db, accountId: string, userId: string, planId: 
   return map(rows[0]);
 }
 
+/** How many users an account has, counted up to `upTo` (bounded work even for huge accounts). */
+export async function countForAccount(db: Db, accountId: string, upTo: number): Promise<number> {
+  const { rows } = await db.query('SELECT count(*)::int AS n FROM (SELECT 1 FROM users WHERE account_id = $1 LIMIT $2) s', [accountId, upTo]);
+  return rows[0].n;
+}
+
 /** Scoped by account: another account's user simply does not exist from here. */
 export async function find(db: Db, accountId: string, userId: string): Promise<UserRow | null> {
   const { rows } = await db.query(`SELECT ${COLS} FROM users WHERE account_id = $1 AND external_id = $2`, [accountId, userId]);

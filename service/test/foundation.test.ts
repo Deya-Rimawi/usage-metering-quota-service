@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { loadConfig } from '../src/config';
 import { migrate } from '../src/db/migrate';
+import { waitForDatabase } from '../src/db/pool';
 import { buildApp } from '../src/http/app';
 import { resetData, setupTestDb, TEST_URL } from './helpers';
 
@@ -38,5 +39,23 @@ describe('health', () => {
     const app = buildApp({ pool, config });
     expect((await app.inject('/health')).statusCode).toBe(200);
     expect((await app.inject('/ready')).statusCode).toBe(200);
+  });
+});
+
+describe('waitForDatabase', () => {
+  const noSleep = { sleep: async () => {} };
+
+  it('retries until the database answers instead of crashing', async () => {
+    let calls = 0;
+    const flaky = { query: async () => { if (++calls <= 3) throw new Error('the database system is starting up'); return {} as never; } };
+    const seen: number[] = [];
+    await waitForDatabase(flaky, { ...noSleep, onRetry: (_e, attempt) => seen.push(attempt) });
+    expect(calls).toBe(4);
+    expect(seen).toEqual([1, 2, 3]);
+  });
+
+  it('gives up with a clear message when the database never comes', async () => {
+    const down = { query: async () => { throw new Error('connect ECONNREFUSED'); } };
+    await expect(waitForDatabase(down, { ...noSleep, timeoutMs: 20 })).rejects.toThrow(/not reachable after 20 ms: connect ECONNREFUSED/);
   });
 });
